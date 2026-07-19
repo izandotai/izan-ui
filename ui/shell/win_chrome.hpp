@@ -52,6 +52,10 @@ void glfw_error_callback(int error, const char* description);
 // directory and takes over cursor shape via WM_SETCURSOR plus a
 // per-frame fallback. Missing directory or missing Arrow returns false
 // and the system cursors stay; the registry is never touched.
+// Hand the window the icon embedded in the executable's resources
+// (title bar, taskbar, alt-tab). The id is the .rc entry's ordinal.
+void set_window_icon_resource(GLFWwindow* window, int resource_id);
+
 bool install_custom_cursors(const std::filesystem::path& dir);
 bool custom_cursors_active();
 void apply_custom_cursor();                      // by ImGui::GetMouseCursor()

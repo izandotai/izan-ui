@@ -200,6 +200,25 @@ namespace {
 
 }
 
+void set_window_icon_resource(GLFWwindow* window, int resource_id)
+{
+    HWND hwnd = glfwGetWin32Window(window);
+    if (hwnd == nullptr)
+        return;
+    HINSTANCE self = GetModuleHandleW(nullptr);
+    // Two loads on purpose: the small slot rendered from the 256px
+    // entry comes out muddy; asking for 16px picks the crisp one.
+    if (HANDLE big = LoadImageW(self, MAKEINTRESOURCEW(resource_id),
+            IMAGE_ICON, 0, 0, LR_DEFAULTSIZE))
+        SendMessageW(
+            hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    if (HANDLE small = LoadImageW(self, MAKEINTRESOURCEW(resource_id),
+            IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+            GetSystemMetrics(SM_CYSMICON), 0))
+        SendMessageW(
+            hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+}
+
 void install_custom_window_chrome(GLFWwindow* window)
 {
     HWND hwnd = glfwGetWin32Window(window);
