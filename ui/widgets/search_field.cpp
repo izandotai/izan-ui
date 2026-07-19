@@ -35,7 +35,7 @@ void kit_search_field(
     if (buf[0] != '\0') {
         const ImVec2 keep = ImGui::GetCursorScreenPos();
         ImGui::SetCursorScreenPos(
-            ImVec2(pos.x + w - d - em * 0.3f, pos.y + (h - d) * 0.5f));
+            ImVec2(pos.x + w - d - em * 0.55f, pos.y + (h - d) * 0.5f));
         ImGui::InvisibleButton("##clear", ImVec2(d, d));
         const bool hovered = ImGui::IsItemHovered();
         if (hovered)

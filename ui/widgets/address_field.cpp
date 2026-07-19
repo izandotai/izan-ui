@@ -106,7 +106,7 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
     const bool empty = buf[0] == '\0';
     const ImVec2 keep = ImGui::GetCursorScreenPos();
     ImGui::SetCursorScreenPos(
-        ImVec2(fmax.x - d - em * 0.3f, (pos.y + fmax.y - d) * 0.5f));
+        ImVec2(fmax.x - d - em * 0.55f, (pos.y + fmax.y - d) * 0.5f));
     ImGui::InvisibleButton("##glyph", ImVec2(d, d));
     const bool hovered = ImGui::IsItemHovered();
     if (hovered)
