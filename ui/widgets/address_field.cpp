@@ -65,7 +65,8 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
 {
     const float em = ImGui::GetFontSize();
     const float w = ImGui::CalcItemWidth();
-    const float h = ImGui::GetFrameHeight();
+    // Same well metrics as every plain field — see search_field.
+    const float h = em * (1.0f + 2.0f * design().field_pad_y);
     const float d = em * 1.1f;
 
     ImGui::PushID(id);
@@ -76,10 +77,12 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
     kit_field_frame(pos, ImVec2(w, h));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+        ImVec2(em * design().field_pad_x, em * design().field_pad_y));
     ImGui::SetNextItemWidth(w - d - em * 0.55f);
     const bool submitted = ImGui::InputTextWithHint(
         "##text", hint, buf, size, ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
     const ImVec2 fmax(pos.x + w, pos.y + h);
     ImGui::OpenPopupOnItemClick("##menu", ImGuiPopupFlags_MouseButtonRight);

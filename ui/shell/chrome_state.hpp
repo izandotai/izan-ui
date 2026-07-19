@@ -13,6 +13,13 @@ namespace izan::ui {
 struct ChromeState {
     int theme_index = 0;
     float window_opacity = 0.96f;
+    // Caption-button tooltip texts. The frame ships English; an app
+    // with a catalog pours its own words in every frame — the shell
+    // itself never owns a translation table.
+    std::string caption_minimize = "Minimize";
+    std::string caption_maximize = "Maximize";
+    std::string caption_restore = "Restore";
+    std::string caption_close = "Close";
     bool snap_layout_open = false;
     double snap_layout_hover_started = -1.0;
     double snap_layout_last_hovered = -1.0;

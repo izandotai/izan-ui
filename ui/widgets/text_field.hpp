@@ -21,6 +21,10 @@ bool kit_text_field(
 void kit_field_style_push();
 void kit_field_style_pop();
 
+// Paint the recessed well over the input drawn between push/pop —
+// call right after the item; `focused` wraps it in the accent halo.
+void kit_field_well_finish(bool focused);
+
 // The dress painted as a bare rectangle — for composite fields that
 // place a narrower, frameless input inside a wider frame so text and
 // caret stop before the trailing controls instead of running under

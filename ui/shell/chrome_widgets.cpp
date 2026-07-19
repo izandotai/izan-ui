@@ -515,7 +515,7 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
     update_title_bar_button_hit_region(window, WindowControlIcon::Minimize,
         ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-        queue_simple_tooltip(app, "Minimize",
+        queue_simple_tooltip(app, app.caption_minimize.c_str(),
             ImVec2(ImGui::GetItemRectMin().x + button_width * 0.5f,
                 ImGui::GetItemRectMax().y + 8.0f));
     ImGui::SameLine();
@@ -544,8 +544,9 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
             app.snap_layout_open = true;
         } else if (!app.snap_layout_open) {
             queue_simple_tooltip(app,
-                maximize_icon == WindowControlIcon::Restore ? "Restore"
-                                                            : "Maximize",
+                maximize_icon == WindowControlIcon::Restore
+                    ? app.caption_restore.c_str()
+                    : app.caption_maximize.c_str(),
                 ImVec2(
                     app.snap_layout_anchor.x, app.snap_layout_anchor.y + 8.0f));
         }
@@ -562,7 +563,7 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
     update_title_bar_button_hit_region(window, WindowControlIcon::Close,
         ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-        queue_simple_tooltip(app, "Close",
+        queue_simple_tooltip(app, app.caption_close.c_str(),
             ImVec2(ImGui::GetItemRectMin().x + button_width * 0.5f,
                 ImGui::GetItemRectMax().y + 8.0f));
     ImGui::PopStyleColor(2);

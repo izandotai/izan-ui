@@ -12,7 +12,9 @@ void kit_search_field(
 {
     const float em = ImGui::GetFontSize();
     const float w = ImGui::CalcItemWidth();
-    const float h = ImGui::GetFrameHeight();
+    // The composite wears the same well metrics as every plain field —
+    // ambient style would leave it a squat stranger among tall wells.
+    const float h = em * (1.0f + 2.0f * design().field_pad_y);
     const float d = em * 1.1f;
 
     ImGui::PushID(id);
@@ -23,9 +25,11 @@ void kit_search_field(
     kit_field_frame(pos, ImVec2(w, h));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+        ImVec2(em * design().field_pad_x, em * design().field_pad_y));
     ImGui::SetNextItemWidth(w - d - em * 0.55f);
     ImGui::InputTextWithHint("##text", hint, buf, size);
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
 
     if (buf[0] != '\0') {

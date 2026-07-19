@@ -33,6 +33,12 @@ struct DesignLanguage {
     float dialog_radius = 0.45f;    // the dialog window's corners
     float selection_radius = 0.35f; // rounded selection highlights
     float avatar_radius = 0.28f;    // × avatar size (squircle)
+    // The input well: the button's recessed twin. Generous corners and
+    // real height are half of what reads as "macOS"; the well strokes
+    // in text_field.cpp are the other half.
+    float field_radius = 0.5f; // × em
+    float field_pad_x = 0.8f;  // inner text inset
+    float field_pad_y = 0.55f; // grows the field to ~2.1em tall
 
     // -- component metrics --
     float dialog_width = 15.0f; // one width for every dialog
