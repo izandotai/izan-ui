@@ -9,6 +9,15 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
+if(MINGW)
+    # Fully static: an executable may import Windows system libraries
+    # and NOTHING else — no compiler-runtime DLLs ride along. DEP and
+    # ASLR link bits set explicitly; mingw does not guarantee them.
+    add_link_options(-static)
+    add_link_options(-Wl,--nxcompat -Wl,--dynamicbase -Wl,--high-entropy-va)
+    add_compile_definitions(_WIN32_WINNT=0x0A00)
+endif()
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
@@ -22,7 +31,7 @@ option(IZAN_UI_SHELL "Build the imgui shell and widget kit" ON)
 # pins in lockstep — the first declare wins.
 FetchContent_Declare(izan_crypto
     GIT_REPOSITORY https://github.com/izandotai/izan-crypto.git
-    GIT_TAG 83899cb
+    GIT_TAG 6ced820
     EXCLUDE_FROM_ALL
 )
 # Reflection JSON for the i18n tables and the demo shell's settings.
