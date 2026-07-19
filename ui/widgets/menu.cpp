@@ -97,14 +97,22 @@ bool kit_menu_item_icon(const char* swatch_name, const char* label,
                       kit_snap(pos.y + (row_h - em) * 0.5f)),
         ImGui::GetColorU32(ImGuiCol_Text), label);
     if (trailing && *trailing) {
-        const float trailing_w
-            = ImGui::GetFont()
-                  ->CalcTextSizeA(kit_caption_size(), FLT_MAX, 0.0f, trailing)
-                  .x;
+        // The note keeps to the right edge but never crowds the label:
+        // whatever space the label leaves (minus a breath) is the
+        // note's whole budget, and a long name elides into it.
+        const float label_end
+            = sw + em * 0.55f + ImGui::CalcTextSize(label).x + em * 0.8f;
+        const float budget = width - label_end;
+        const std::string shown
+            = kit_elide_middle(trailing, budget, kit_caption_size());
+        const float trailing_w = ImGui::GetFont()
+                                     ->CalcTextSizeA(kit_caption_size(),
+                                         FLT_MAX, 0.0f, shown.c_str())
+                                     .x;
         draw->AddText(ImGui::GetFont(), kit_caption_size(),
             ImVec2(kit_snap(pos.x + width - trailing_w),
                 kit_snap(pos.y + (row_h - kit_caption_size()) * 0.5f)),
-            ImGui::GetColorU32(ImGuiCol_TextDisabled), trailing);
+            ImGui::GetColorU32(ImGuiCol_TextDisabled), shown.c_str());
     }
     return clicked;
 }
