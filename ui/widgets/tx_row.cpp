@@ -5,6 +5,7 @@
 
 #include <imgui.h>
 
+#include "ui/widgets/avatar.hpp"
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/label.hpp"
 #include "ui/widgets/tooltip.hpp"
@@ -13,7 +14,7 @@ namespace izan::ui {
 
 bool kit_tx_row(const char* id, bool incoming, const char* counterparty,
     const char* note, const char* amount, bool failed, const char* hint,
-    const char* note_hint)
+    const char* note_hint, const char* face)
 {
     const float em = ImGui::GetFontSize();
     const float row_h = em * 2.3f;
@@ -37,15 +38,38 @@ bool kit_tx_row(const char* id, bool incoming, const char* counterparty,
             em * design().selection_radius);
     }
 
+    // With a face, the asset's minted avatar leads and the direction
+    // shrinks to a corner badge on it — the row wears the same
+    // identity the holdings page does. Without one, the plain
+    // direction disc stands alone as before.
+    float lead;
+    ImVec2 c;
+    float disc;
+    if (face && *face) {
+        const float avatar = em * 1.6f;
+        kit_avatar_at(
+            ImVec2(pos.x, pos.y + (row_h - avatar) * 0.5f), face, avatar);
+        disc = em * 0.85f;
+        c = ImVec2(pos.x + avatar - disc * 0.32f,
+            pos.y + (row_h + avatar) * 0.5f - disc * 0.32f);
+        // A window-toned seat so the badge reads as sitting ON the
+        // avatar, not bleeding into it.
+        draw->AddCircleFilled(
+            c, disc * 0.62f, ImGui::GetColorU32(ImGuiCol_WindowBg), 0);
+        lead = avatar + disc * 0.35f;
+    } else {
+        disc = em * 1.5f;
+        c = ImVec2(pos.x + disc * 0.5f, pos.y + row_h * 0.5f);
+        lead = disc;
+    }
     // The direction disc: accent for money arriving, quiet for money
     // leaving, danger-toned for a movement the chain rejected.
-    const float disc = em * 1.5f;
-    const ImVec2 c(pos.x + disc * 0.5f, pos.y + row_h * 0.5f);
     ImVec4 tone = failed ? kit_danger()
         : incoming       ? kit_accent()
                          : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
-    tone.w = 0.22f;
+    tone.w = face && *face ? 0.9f : 0.22f;
     draw->AddCircleFilled(c, disc * 0.5f, ImGui::GetColorU32(tone), 0);
+    tone = face && *face ? ImGui::GetStyleColorVec4(ImGuiCol_WindowBg) : tone;
     tone.w = 1.0f;
     const ImU32 stroke = ImGui::GetColorU32(tone);
     const float a = disc * 0.21f;
@@ -59,7 +83,7 @@ bool kit_tx_row(const char* id, bool incoming, const char* counterparty,
     draw->AddLine(ImVec2(c.x + a * 0.7f, c.y + a * dir * 0.25f),
         ImVec2(c.x, c.y + a * dir), stroke, t);
 
-    const float text_x = kit_snap(pos.x + disc + em * 0.5f);
+    const float text_x = kit_snap(pos.x + lead + em * 0.5f);
     const float amount_w = ImGui::CalcTextSize(amount).x;
     const float budget = pos.x + row_w - text_x - amount_w - em * 0.8f;
     const std::string who = kit_elide_middle(counterparty, budget);
