@@ -12,32 +12,43 @@ endif()
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
-# The imgui stack: glfw + freetype + Dear ImGui (docking), pinned
-# tarballs, one static library.
-include(cmake/gui_deps.cmake)
+# OFF = i18n engine only: no imgui stack is even downloaded, so a
+# consumer's trust-plane build stays lean.
+option(IZAN_UI_SHELL "Build the imgui shell and widget kit" ON)
 
 # SecureBytes for password fields arrives through izan-crypto; only
 # the interface target (and sodium beneath it) actually builds.
+# Consumers that also depend on izan-crypto or glaze must keep their
+# pins in lockstep — the first declare wins.
 FetchContent_Declare(izan_crypto
     GIT_REPOSITORY https://github.com/izandotai/izan-crypto.git
     GIT_TAG 83899cb
     EXCLUDE_FROM_ALL
 )
-# Reflection JSON for the demo shell's settings.
+# Reflection JSON for the i18n tables and the demo shell's settings.
 FetchContent_Declare(glaze
     URL https://github.com/stephenberry/glaze/archive/refs/tags/v7.8.4.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP ON
     EXCLUDE_FROM_ALL
 )
-# QR codes: nayuki's reference implementation, a single translation
-# unit compiled into the kit.
-FetchContent_Declare(qrcodegen
-    URL https://github.com/nayuki/QR-Code-generator/archive/refs/tags/v1.8.0.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP ON
-    SOURCE_SUBDIR cmake-subdir-does-not-exist
-    EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(izan_crypto glaze qrcodegen)
+FetchContent_MakeAvailable(izan_crypto glaze)
+
+if(IZAN_UI_SHELL)
+    # The imgui stack: glfw + freetype + Dear ImGui (docking), pinned
+    # tarballs, one static library.
+    include(cmake/gui_deps.cmake)
+    # QR codes: nayuki's reference implementation, a single
+    # translation unit compiled into the kit.
+    FetchContent_Declare(qrcodegen
+        URL https://github.com/nayuki/QR-Code-generator/archive/refs/tags/v1.8.0.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP ON
+        SOURCE_SUBDIR cmake-subdir-does-not-exist
+        EXCLUDE_FROM_ALL
+    )
+    FetchContent_MakeAvailable(qrcodegen)
+endif()
+
+if(IZAN_UI_SHELL)
 
 # The window shell: borderless chrome, themes, font cascade, IME,
 # console re-plumbing, layout guardianship.
@@ -93,6 +104,7 @@ target_include_directories(izan_kit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${qrcodegen_SOURCE_DIR}/cpp)
 # shell32: kit_hyperlink hands URLs to the system browser.
 target_link_libraries(izan_kit PUBLIC izan_imgui izan_secure shell32)
+endif()
 
 # The i18n engine: an English base table with per-language overlays;
 # headless, imgui-free, testable anywhere. Language TABLES belong to
@@ -114,7 +126,7 @@ function(izan_ui_copy_assets target)
         COMMENT "Copying izan-ui assets for ${target}")
 endfunction()
 
-if(PROJECT_IS_TOP_LEVEL)
+if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
     # The acceptance shell: full window chrome plus a component
     # gallery, double-click friendly (windows subsystem; a terminal
     # launch re-plumbs stdout back).
