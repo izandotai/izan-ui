@@ -29,7 +29,7 @@ namespace {
 
     void draw_popup_shadow_for_rect(ImDrawList* draw_list,
         const ChromeState& app, const ImRect& rect,
-        const std::vector<ImRect>& blockers, bool modal)
+        const std::vector<ImRect>& blockers, float rounding, bool modal)
     {
         // One analytic umbra (2026-07-20 dialog-corner verdict): the
         // old 12-14 stacked polygon rings each brought their own arc
@@ -42,9 +42,11 @@ namespace {
         const float drop = modal ? 4.0f : 1.0f;
         shadow.min = ImVec2(rect.Min.x, rect.Min.y + drop);
         shadow.max = ImVec2(rect.Max.x, rect.Max.y + drop);
-        const float r = ImGui::GetStyle().PopupRounding;
+        // The WINDOW'S OWN rounding, not the style's: kit dialogs push a
+        // larger radius for their frame, and a shadow cut at the global
+        // value pokes out at every corner (2026-07-20 four-corner case).
         shadow.radius[0] = shadow.radius[1] = shadow.radius[2]
-            = shadow.radius[3] = r;
+            = shadow.radius[3] = rounding;
         shadow.fill = theme_popup_shadow_color(app, modal ? 0.26f : 0.16f);
         shadow.soft_px = modal ? 26.0f : 11.0f;
         render::sdf_rect(draw_list, shadow);
@@ -90,6 +92,7 @@ void draw_menu_popup_shadows(const ChromeState& app)
     struct FloatingRect {
         ImGuiWindow* window = nullptr;
         ImRect rect;
+        float rounding = 0.0f;
         bool modal = false;
     };
 
@@ -106,7 +109,7 @@ void draw_menu_popup_shadows(const ChromeState& app)
             ImRect(window->Pos,
                 ImVec2(window->Pos.x + window->Size.x,
                     window->Pos.y + window->Size.y)),
-            modal });
+            window->WindowRounding, modal });
     }
     if (popup_rects.empty())
         return;
@@ -140,7 +143,7 @@ void draw_menu_popup_shadows(const ChromeState& app)
                 blockers.push_back(popup_rects[blocker_index].rect);
         }
         draw_popup_shadow_for_rect(draw_list, app, popup_rects[index].rect,
-            blockers, popup_rects[index].modal);
+            blockers, popup_rects[index].rounding, popup_rects[index].modal);
     }
     draw_list->PopClipRect();
     ImGui::End();
