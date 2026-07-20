@@ -670,7 +670,15 @@ int main(int argc, char** argv)
     // OS-level input, which this session cannot fake reliably), then
     // depose ActiveId and the window roster to a file.
     const bool caret_probe = std::getenv("IZAN_CARET_PROBE") != nullptr;
-    shell.wm().launch(caret_probe ? static_cast<os::App*>(&notes) : &files);
+    // IZAN_OS_APP=files|notes|gallery picks the first window for
+    // screenshot verification runs.
+    const char* first_id = std::getenv("IZAN_OS_APP");
+    os::App* first = &files;
+    if (caret_probe || (first_id && std::string_view(first_id) == "notes"))
+        first = &notes;
+    else if (first_id && std::string_view(first_id) == "gallery")
+        first = &gallery;
+    shell.wm().launch(first);
     WallpaperCache wallpaper;
 
     int rendered_frames = 0;

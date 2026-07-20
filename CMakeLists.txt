@@ -112,7 +112,8 @@ add_library(izan::kit ALIAS izan_kit)
 target_include_directories(izan_kit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${qrcodegen_SOURCE_DIR}/cpp)
 # shell32: kit_hyperlink hands URLs to the system browser.
-target_link_libraries(izan_kit PUBLIC izan_imgui izan_secure shell32)
+target_link_libraries(
+    izan_kit PUBLIC izan_imgui izan_secure shell32 PRIVATE izan_render)
 endif()
 
 # The i18n engine: an English base table with per-language overlays;

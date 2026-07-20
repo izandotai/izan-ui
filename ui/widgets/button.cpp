@@ -1,5 +1,8 @@
 #include "ui/widgets/button.hpp"
 
+#include <imgui_internal.h>
+
+#include "ui/render/sdf_rect.hpp"
 #include "ui/widgets/design.hpp"
 
 namespace izan::ui {
@@ -44,7 +47,7 @@ namespace {
     // the crown (layered caps stand in for a gradient, corners kept
     // round), a shallow floor shade, a hairline crown highlight and a
     // quiet darker rim to seat the button in the surface.
-    void paint_gloss(float rounding)
+    void paint_gloss(float rounding, bool with_rim = true)
     {
         const float g = design().button_gloss;
         if (g <= 0.0f)
@@ -71,24 +74,59 @@ namespace {
             ImVec2(max.x - rounding * 0.9f, min.y + 1.0f),
             IM_COL32(255, 255, 255, int(56.0f * g)));
 
-        draw->AddRect(
-            min, max, IM_COL32(0, 0, 0, int(48.0f * g)), rounding, 0, 1.0f);
+        if (with_rim)
+            draw->AddRect(
+                min, max, IM_COL32(0, 0, 0, int(48.0f * g)), rounding, 0, 1.0f);
     }
 
-    bool filled_button(const char* label, float width, const ImVec4& fill)
+    // Every kit button rides the analytic base: an SDF capsule for
+    // the fill and the seating rim (the largest radii in the kit,
+    // where polygon arcs read worst), the gloss layered inside it,
+    // the label drawn by hand. GetColorU32 keeps disabled dimming.
+    bool sdf_button(const char* label, float width, const ImVec4* fill_color)
     {
-        const ImVec4 hover = kit_blend(fill, ImVec4(1, 1, 1, fill.w), 0.12f);
-        const ImVec4 active = kit_blend(fill, ImVec4(0, 0, 0, fill.w), 0.12f);
-        ImGui::PushStyleColor(ImGuiCol_Button, fill);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.96f));
-        const float rounding = push_button_shape();
-        const bool clicked
-            = ImGui::Button(label, ImVec2(resolved_width(label, width), 0.0f));
-        pop_button_shape();
-        ImGui::PopStyleColor(4);
-        paint_gloss(rounding);
+        const float w = resolved_width(label, width);
+        const float h = ImGui::GetFrameHeight();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const bool clicked = ImGui::InvisibleButton(label, ImVec2(w, h));
+        const bool hovered = ImGui::IsItemHovered();
+        const bool held = hovered && ImGui::IsItemActive();
+
+        ImVec4 base = fill_color != nullptr
+            ? *fill_color
+            : ImGui::GetStyleColorVec4(held ? ImGuiCol_ButtonActive
+                      : hovered             ? ImGuiCol_ButtonHovered
+                                            : ImGuiCol_Button);
+        if (fill_color != nullptr && held)
+            base = kit_blend(base, ImVec4(0, 0, 0, base.w), 0.12f);
+        else if (fill_color != nullptr && hovered)
+            base = kit_blend(base, ImVec4(1, 1, 1, base.w), 0.12f);
+
+        const float rounding
+            = design().button_pill ? h * 0.5f : ImGui::GetStyle().FrameRounding;
+        const float g = design().button_gloss;
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        render::SdfRect body;
+        body.min = pos;
+        body.max = { pos.x + w, pos.y + h };
+        body.radius[0] = body.radius[1] = body.radius[2] = body.radius[3]
+            = rounding;
+        body.fill = ImGui::GetColorU32(base);
+        if (g > 0.0f) {
+            body.border
+                = ImGui::GetColorU32(ImVec4(0, 0, 0, 48.0f / 255.0f * g));
+            body.border_px = 1.0f;
+        }
+        render::sdf_rect(draw, body);
+        paint_gloss(rounding, false);
+
+        const ImVec4 ink = fill_color != nullptr
+            ? ImVec4(1, 1, 1, 0.96f)
+            : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        const char* text_end = ImGui::FindRenderedTextEnd(label);
+        const ImVec2 ts = ImGui::CalcTextSize(label, text_end);
+        draw->AddText({ pos.x + (w - ts.x) * 0.5f, pos.y + (h - ts.y) * 0.5f },
+            ImGui::GetColorU32(ink), label, text_end);
         return clicked;
     }
 
@@ -98,22 +136,18 @@ bool kit_primary_button(const char* label, float width)
 {
     ImVec4 accent = kit_accent();
     accent.w = 1.0f;
-    return filled_button(label, width, accent);
+    return sdf_button(label, width, &accent);
 }
 
 bool kit_danger_button(const char* label, float width)
 {
-    return filled_button(label, width, kit_danger());
+    const ImVec4 danger = kit_danger();
+    return sdf_button(label, width, &danger);
 }
 
 bool kit_subtle_button(const char* label, float width)
 {
-    const float rounding = push_button_shape();
-    const bool clicked
-        = ImGui::Button(label, ImVec2(resolved_width(label, width), 0.0f));
-    pop_button_shape();
-    paint_gloss(rounding);
-    return clicked;
+    return sdf_button(label, width, nullptr);
 }
 
 float kit_button_width(const char* label, float width)
