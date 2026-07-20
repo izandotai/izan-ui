@@ -124,8 +124,8 @@ void window_shadow(
     }
 }
 
-bool mint_input(const char* id, const char* hint_text, char* buf,
-    std::size_t size, ImVec2 min, ImVec2 max, const FieldStyle& style)
+bool izan_input(const char* id, const char* hint_text, char* buf,
+    std::size_t size, ImVec2 min, ImVec2 max, const IzanFieldStyle& style)
 {
     const float s = mint_scale();
     ImDrawList* draw = ImGui::GetWindowDrawList();

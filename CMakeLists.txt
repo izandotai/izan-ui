@@ -141,6 +141,13 @@ endfunction()
 # Mint-cultured is the working development skin, another look is a
 # new implementation, the kernel untouched.
 if(IZAN_UI_SHELL)
+    # Analytic (SDF) drawing: shader-measured coverage for rounded
+    # shapes — smooth at any zoom, cheaper than polygon fans.
+    add_library(izan_render STATIC ui/render/sdf_rect.cpp)
+    add_library(izan::render ALIAS izan_render)
+    target_include_directories(izan_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(izan_render PUBLIC izan_imgui PRIVATE glfw)
+
     add_library(izan_os STATIC
         ui/os/mint_paint.cpp
         ui/os/panel.cpp
@@ -150,7 +157,7 @@ if(IZAN_UI_SHELL)
     )
     add_library(izan::os ALIAS izan_os)
     target_include_directories(izan_os PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(izan_os PUBLIC izan_imgui PRIVATE izan_kit)
+    target_link_libraries(izan_os PUBLIC izan_imgui PRIVATE izan_kit izan_render)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)

@@ -123,9 +123,9 @@ public:
 
         // The shared input component wears the white suit here; the
         // magnifier is the caller's garnish, painted over the well.
-        FieldStyle search_style;
+        IzanFieldStyle search_style;
         search_style.inset_x = 29.0f;
-        mint_input("##nemo-search", "Search files", search_.data(),
+        izan_input("##nemo-search", "Search files", search_.data(),
             search_.size(), search_min, search_max, search_style);
         const ImVec2 magnifier { search_min.x + 16.0f * s,
             (search_min.y + search_max.y) * 0.5f };

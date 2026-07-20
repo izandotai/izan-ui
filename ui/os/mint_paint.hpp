@@ -46,7 +46,7 @@ void window_shadow(
 // border, no nav ring) and rides vertically centered, measured off
 // its own frame height. Styles vary by parameters; the discipline is
 // inherited by every variant.
-struct FieldStyle {
+struct IzanFieldStyle {
     ImU32 bg = IM_COL32(255, 255, 255, 255);
     ImU32 border = IM_COL32(72, 76, 73, 54);
     ImU32 text = IM_COL32(52, 55, 53, 255);
@@ -55,8 +55,8 @@ struct FieldStyle {
     float rounding = 6.0f; // logical px
 };
 
-bool mint_input(const char* id, const char* hint_text, char* buf,
-    std::size_t size, ImVec2 min, ImVec2 max, const FieldStyle& style);
+bool izan_input(const char* id, const char* hint_text, char* buf,
+    std::size_t size, ImVec2 min, ImVec2 max, const IzanFieldStyle& style);
 
 void text_at(ImDrawList* draw, ImVec2 pos, ImU32 color, std::string_view value,
     float size);

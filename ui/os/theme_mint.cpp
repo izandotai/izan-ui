@@ -4,6 +4,7 @@
 
 #include "ui/os/mint_paint.hpp"
 #include "ui/os/theme.hpp"
+#include "ui/render/sdf_rect.hpp"
 
 // The Mint-cultured theme — the working development skin, drawn to
 // match the Cinnamon desktop line for line: a light Nemo-style
@@ -53,8 +54,15 @@ namespace {
             // paints on top is a faint tint, not a second sheet —
             // stacked sheets square the transmission away and read as
             // plain darkening, never as glass.
-            draw->AddRectFilled(
-                rmin, rmax, IM_COL32(247, 248, 247, 245), rounding);
+            {
+                render::SdfRect body;
+                body.min = rmin;
+                body.max = rmax;
+                body.radius[0] = body.radius[1] = body.radius[2]
+                    = body.radius[3] = rounding;
+                body.fill = IM_COL32(247, 248, 247, 245);
+                render::sdf_rect(draw, body);
+            }
 
             // The title strip is a tint over the glass; same rect and
             // radius as the body, so its arc lies exactly on the
@@ -89,12 +97,14 @@ namespace {
                 const bool is_close
                     = c == static_cast<int>(WindowControl::Close);
                 if (hot) {
-                    draw->AddRectFilled(r.min, r.max,
-                        is_close ? IM_COL32(205, 65, 65, 255)
-                                 : IM_COL32(72, 78, 74, 25),
-                        is_close ? rounding : 0.0f,
-                        is_close ? ImDrawFlags_RoundCornersTopRight
-                                 : ImDrawFlags_None);
+                    render::SdfRect wash;
+                    wash.min = r.min;
+                    wash.max = r.max;
+                    if (is_close)
+                        wash.radius[1] = rounding; // top-right only
+                    wash.fill = is_close ? IM_COL32(205, 65, 65, 255)
+                                         : IM_COL32(72, 78, 74, 25);
+                    render::sdf_rect(draw, wash);
                 }
                 const ImVec2 center { (r.min.x + r.max.x) * 0.5f,
                     (r.min.y + r.max.y) * 0.5f };
@@ -106,11 +116,19 @@ namespace {
             }
 
             // The outline lands last, over the hovered controls, so
-            // the rounded outer edge never breaks at a corner. Two
-            // pixels, per the house rule: a 1px hairline crumbles on
-            // the anti-aliased corner arcs and reads as dirt.
-            draw->AddRect(
-                rmin, rmax, IM_COL32(25, 29, 28, 82), rounding, 0, 2.0f);
+            // the rounded outer edge never breaks at a corner —
+            // analytic, so the arc is computed, not approximated.
+            {
+                render::SdfRect rim;
+                rim.min = rmin;
+                rim.max = rmax;
+                rim.radius[0] = rim.radius[1] = rim.radius[2] = rim.radius[3]
+                    = rounding;
+                rim.fill = IM_COL32(0, 0, 0, 0);
+                rim.border = IM_COL32(25, 29, 28, 82);
+                rim.border_px = 2.0f;
+                render::sdf_rect(draw, rim);
+            }
         }
 
         void paint_wallpaper(
