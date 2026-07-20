@@ -110,10 +110,11 @@ namespace {
             }
 
             // The outline lands last, over the hovered controls, so
-            // the rounded outer edge never breaks at a corner — and a
-            // rounded fill without its stroke reads as a ragged edge.
+            // the rounded outer edge never breaks at a corner. Two
+            // pixels, per the house rule: a 1px hairline crumbles on
+            // the anti-aliased corner arcs and reads as dirt.
             draw->AddRect(
-                rmin, rmax, IM_COL32(25, 29, 28, 82), rounding, 0, 1.0f);
+                rmin, rmax, IM_COL32(25, 29, 28, 82), rounding, 0, 2.0f);
         }
 
         void paint_wallpaper(
