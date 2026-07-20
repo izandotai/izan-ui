@@ -309,7 +309,16 @@ public:
             wmin.y + 40.0f * s };
         izan_input(
             "##notes", "写点东西…", buffer, sizeof buffer, wmin, wmax, st);
+        probe_well_min = wmin;
+        probe_well_max = wmax;
+        probe_active = ImGui::IsItemActive();
     }
+
+    // The caret probe reads where the well landed and whether the
+    // input actually holds ActiveId.
+    ImVec2 probe_well_min {};
+    ImVec2 probe_well_max {};
+    bool probe_active = false;
 };
 
 class GalleryApp final : public os::App {
@@ -656,7 +665,12 @@ int main(int argc, char** argv)
     shell.attach(&files);
     shell.attach(&notes);
     shell.attach(&gallery);
-    shell.wm().launch(&files);
+    // IZAN_CARET_PROBE=1: open the notes window alone, inject a
+    // synthetic click into its input through imgui's event queue (no
+    // OS-level input, which this session cannot fake reliably), then
+    // depose ActiveId and the window roster to a file.
+    const bool caret_probe = std::getenv("IZAN_CARET_PROBE") != nullptr;
+    shell.wm().launch(caret_probe ? static_cast<os::App*>(&notes) : &files);
     WallpaperCache wallpaper;
 
     int rendered_frames = 0;
@@ -673,6 +687,37 @@ int main(int argc, char** argv)
             os::mint_theme(), desk_size, ImGui::GetFontSize()));
         shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h), desk_size);
         draw_mint_host_frame(app.window());
+
+        if (caret_probe) {
+            ImGuiIO& io = ImGui::GetIO();
+            const int f = ImGui::GetFrameCount();
+            const ImVec2 c { (notes.probe_well_min.x + notes.probe_well_max.x)
+                    * 0.5f,
+                (notes.probe_well_min.y + notes.probe_well_max.y) * 0.5f };
+            if (f == 30)
+                io.AddMousePosEvent(c.x, c.y);
+            if (f == 33)
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+            if (f == 35)
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+            if (f == 60) {
+                ImGuiContext& g = *ImGui::GetCurrentContext();
+                if (std::FILE* fp = std::fopen("caret-probe.txt", "w")) {
+                    std::fprintf(fp,
+                        "active_id=%u item_active=%d hovered=%s nav=%s "
+                        "active_window=%s well=(%.0f,%.0f)-(%.0f,%.0f)\n",
+                        g.ActiveId, notes.probe_active ? 1 : 0,
+                        g.HoveredWindow ? g.HoveredWindow->Name : "-",
+                        g.NavWindow ? g.NavWindow->Name : "-",
+                        g.ActiveIdWindow ? g.ActiveIdWindow->Name : "-",
+                        notes.probe_well_min.x, notes.probe_well_min.y,
+                        notes.probe_well_max.x, notes.probe_well_max.y);
+                    std::fclose(fp);
+                }
+            }
+            if (f == 70)
+                glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
+        }
 
         app.end_frame(ImVec4(0.08f, 0.16f, 0.15f, 1.0f));
 
