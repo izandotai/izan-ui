@@ -1,9 +1,14 @@
 // The built-in cursor set, drawn with signed distance fields the same
-// way the widgets are. Every shape lives in a 100-unit art box and is
-// evaluated per pixel: dark ink body, white rim, coverage from the
-// distance itself — crisp at any size the system asks for. The
-// geometry is original; the ink-and-rim scheme is generic cursor
-// culture, owned by no one.
+// way the widgets are. The design language is studied from the folded-
+// paper school of cursor art: solid white faceted bodies, a thin dark
+// outline, dark crease strokes inside the shape, one red accent on the
+// forbidden sign — all edges straight, all corners sharp. The geometry
+// here is original; only the vocabulary is shared.
+//
+// Every shape lives in a 100-unit art box and is evaluated per pixel:
+// coverage comes straight from the distance, so the set is crisp at
+// whatever size the system asks for. Ink spans ~60 of the 100 units,
+// the proportion the school sizes its cursors at.
 #include "ui/shell/cursor_paint.hpp"
 
 #include <imgui.h>
@@ -54,22 +59,16 @@ namespace {
         return s * std::sqrt(d);
     }
 
-    float sd_capsule(V p, V a, V b, float r)
+    float sd_segment(V p, V a, V b)
     {
         const V pa = p - a;
         const V ba = b - a;
         const float h = clampf(dot(pa, ba) / dot(ba, ba), 0.0f, 1.0f);
         const V q { pa.x - ba.x * h, pa.y - ba.y * h };
-        return std::sqrt(dot(q, q)) - r;
+        return std::sqrt(dot(q, q));
     }
 
-    float sd_circle(V p, V c, float r)
-    {
-        const V d = p - c;
-        return std::sqrt(dot(d, d)) - r;
-    }
-
-    float sd_round_box(V p, V c, V half, float r)
+    float sd_box(V p, V c, V half, float r)
     {
         const V q { std::abs(p.x - c.x) - half.x + r,
             std::abs(p.y - c.y) - half.y + r };
@@ -85,125 +84,137 @@ namespace {
         return { c.x + d.x * cs - d.y * sn, c.y + d.x * sn + d.y * cs };
     }
 
-    // A shape is the min over its parts, each part one primitive
-    // evaluated in art space. rot spins the whole shape around center.
+    struct Stroke {
+        V a, b;
+        float hw; // half-width
+    };
+
+    struct Box {
+        V c, half;
+        float r;
+    };
+
+    // A cursor: white body (polygons + boxes), dark creases over it,
+    // an optional red accent patch with dark marks over that. rot
+    // spins everything around the box center.
     struct Shape {
         std::vector<std::vector<V>> polys;
-
-        struct Cap {
-            V a, b;
-            float r;
-        };
-
-        std::vector<Cap> caps;
-
-        struct Ring {
-            V c;
-            float radius, hw;
-        };
-
-        std::vector<Ring> rings;
-
-        struct Box {
-            V c, half;
-            float r;
-        };
-
         std::vector<Box> boxes;
+        std::vector<Stroke> creases;
+        std::vector<Box> accents;
+        std::vector<Stroke> marks;
         float rot = 0.0f;
-        float round = 0.0f; // dilate: rounds convex joins
         V hot { 0.0f, 0.0f };
 
-        float eval(V p) const
+        float body(V p) const
         {
-            if (rot != 0.0f)
-                p = rotated(p, { 50.0f, 50.0f }, -rot);
             float d = 1e9f;
             for (const auto& poly : polys)
                 d = std::min(d, sd_polygon(poly, p));
-            for (const Cap& c : caps)
-                d = std::min(d, sd_capsule(p, c.a, c.b, c.r));
-            for (const Ring& r : rings)
-                d = std::min(d, std::abs(sd_circle(p, r.c, r.radius)) - r.hw);
             for (const Box& b : boxes)
-                d = std::min(d, sd_round_box(p, b.c, b.half, b.r));
-            return d - round;
+                d = std::min(d, sd_box(p, b.c, b.half, b.r));
+            return d;
+        }
+
+        float crease(V p) const
+        {
+            float d = 1e9f;
+            for (const Stroke& s : creases)
+                d = std::min(d, sd_segment(p, s.a, s.b) - s.hw);
+            return d;
+        }
+
+        float accent(V p) const
+        {
+            float d = 1e9f;
+            for (const Box& b : accents)
+                d = std::min(d, sd_box(p, b.c, b.half, b.r));
+            return d;
+        }
+
+        float mark(V p) const
+        {
+            float d = 1e9f;
+            for (const Stroke& s : marks)
+                d = std::min(d, sd_segment(p, s.a, s.b) - s.hw);
+            return d;
         }
     };
 
+    // The sail: vertical left edge, straight hypotenuse, flat base —
+    // with a fold-echo of itself creased inside.
     Shape arrow_shape()
     {
         Shape s;
-        s.polys.push_back({ { 14.0f, 6.0f }, { 14.0f, 70.0f }, { 28.5f, 56.5f },
-            { 38.0f, 78.0f }, { 47.5f, 74.0f }, { 38.0f, 52.5f },
-            { 58.0f, 52.5f } });
-        s.round = 1.5f;
-        s.hot = { 14.0f, 6.0f };
+        s.polys.push_back(
+            { { 25.0f, 12.0f }, { 25.0f, 70.0f }, { 60.0f, 70.0f } });
+        s.creases.push_back({ { 36.0f, 41.0f }, { 36.0f, 61.0f }, 2.0f });
+        s.creases.push_back({ { 36.0f, 61.0f }, { 48.0f, 61.0f }, 2.0f });
+        s.creases.push_back({ { 36.0f, 41.0f }, { 48.0f, 61.0f }, 2.0f });
+        s.hot = { 25.0f, 12.0f };
         return s;
     }
 
+    // A slender bar with small squared flares.
     Shape text_shape()
     {
         Shape s;
-        s.caps.push_back({ { 50.0f, 16.0f }, { 50.0f, 84.0f }, 3.5f });
-        s.caps.push_back({ { 41.0f, 13.0f }, { 59.0f, 13.0f }, 3.5f });
-        s.caps.push_back({ { 41.0f, 87.0f }, { 59.0f, 87.0f }, 3.5f });
+        s.boxes.push_back({ { 50.0f, 50.0f }, { 2.6f, 30.0f }, 0.5f });
+        s.boxes.push_back({ { 50.0f, 22.5f }, { 5.0f, 2.5f }, 0.5f });
+        s.boxes.push_back({ { 50.0f, 77.5f }, { 5.0f, 2.5f }, 0.5f });
         s.hot = { 50.0f, 50.0f };
         return s;
     }
 
+    // The kite: an elongated diamond, creased across its waist.
     Shape ns_shape()
     {
         Shape s;
-        s.caps.push_back({ { 50.0f, 24.0f }, { 50.0f, 76.0f }, 4.5f });
-        s.polys.push_back(
-            { { 50.0f, 6.0f }, { 36.0f, 26.0f }, { 64.0f, 26.0f } });
-        s.polys.push_back(
-            { { 50.0f, 94.0f }, { 64.0f, 74.0f }, { 36.0f, 74.0f } });
-        s.round = 1.2f;
+        s.polys.push_back({ { 50.0f, 16.0f }, { 72.0f, 50.0f },
+            { 50.0f, 84.0f }, { 28.0f, 50.0f } });
+        s.creases.push_back({ { 41.0f, 50.0f }, { 59.0f, 50.0f }, 2.0f });
         s.hot = { 50.0f, 50.0f };
         return s;
     }
 
+    // The compass: a square diamond, creased into four quadrants with
+    // the center left unfolded.
     Shape move_shape()
     {
         Shape s;
-        s.caps.push_back({ { 50.0f, 24.0f }, { 50.0f, 76.0f }, 4.0f });
-        s.caps.push_back({ { 24.0f, 50.0f }, { 76.0f, 50.0f }, 4.0f });
-        s.polys.push_back(
-            { { 50.0f, 8.0f }, { 38.0f, 25.0f }, { 62.0f, 25.0f } });
-        s.polys.push_back(
-            { { 50.0f, 92.0f }, { 62.0f, 75.0f }, { 38.0f, 75.0f } });
-        s.polys.push_back(
-            { { 8.0f, 50.0f }, { 25.0f, 62.0f }, { 25.0f, 38.0f } });
-        s.polys.push_back(
-            { { 92.0f, 50.0f }, { 75.0f, 38.0f }, { 75.0f, 62.0f } });
-        s.round = 1.2f;
+        s.polys.push_back({ { 50.0f, 10.0f }, { 90.0f, 50.0f },
+            { 50.0f, 90.0f }, { 10.0f, 50.0f } });
+        s.creases.push_back({ { 50.0f, 26.0f }, { 50.0f, 43.0f }, 2.0f });
+        s.creases.push_back({ { 50.0f, 57.0f }, { 50.0f, 74.0f }, 2.0f });
+        s.creases.push_back({ { 26.0f, 50.0f }, { 43.0f, 50.0f }, 2.0f });
+        s.creases.push_back({ { 57.0f, 50.0f }, { 74.0f, 50.0f }, 2.0f });
         s.hot = { 50.0f, 50.0f };
         return s;
     }
 
+    // The pointing hand, cut angular: squared index finger, faceted
+    // palm with a flat base, two knuckle creases.
     Shape hand_shape()
     {
         Shape s;
-        // Palm, index up, three folded knuckles, thumb, wrist — the
-        // classic link hand reduced to capsules and a rounded box.
-        s.boxes.push_back({ { 55.0f, 66.0f }, { 19.0f, 17.0f }, 11.0f });
-        s.caps.push_back({ { 43.0f, 22.0f }, { 43.0f, 58.0f }, 6.5f });
-        s.caps.push_back({ { 56.0f, 42.0f }, { 56.0f, 52.0f }, 6.0f });
-        s.caps.push_back({ { 67.0f, 45.0f }, { 67.0f, 55.0f }, 5.5f });
-        s.caps.push_back({ { 36.0f, 62.0f }, { 29.0f, 73.0f }, 6.0f });
-        s.boxes.push_back({ { 55.0f, 84.0f }, { 14.0f, 7.0f }, 6.0f });
-        s.hot = { 43.0f, 16.0f };
+        s.boxes.push_back({ { 44.0f, 37.0f }, { 5.0f, 21.0f }, 1.5f });
+        s.polys.push_back({ { 35.0f, 52.0f }, { 49.0f, 44.0f },
+            { 66.0f, 46.0f }, { 69.0f, 60.0f }, { 64.0f, 76.0f },
+            { 38.0f, 76.0f }, { 35.0f, 66.0f } });
+        s.creases.push_back({ { 55.0f, 50.0f }, { 55.0f, 59.0f }, 1.8f });
+        s.creases.push_back({ { 62.0f, 52.0f }, { 62.0f, 61.0f }, 1.8f });
+        s.hot = { 44.0f, 16.0f };
         return s;
     }
 
+    // The sail again, wearing the red refusal badge.
     Shape no_shape()
     {
-        Shape s;
-        s.rings.push_back({ { 50.0f, 50.0f }, 34.0f, 6.0f });
-        s.caps.push_back({ { 28.0f, 28.0f }, { 72.0f, 72.0f }, 6.0f });
-        s.hot = { 50.0f, 50.0f };
+        Shape s = arrow_shape();
+        s.accents.push_back({ { 30.0f, 72.0f }, { 17.0f, 15.0f }, 4.0f });
+        s.marks.push_back({ { 23.0f, 65.0f }, { 37.0f, 79.0f }, 2.2f });
+        s.marks.push_back({ { 37.0f, 65.0f }, { 23.0f, 79.0f }, 2.2f });
+        s.hot = { 25.0f, 12.0f };
         return s;
     }
 
@@ -241,6 +252,14 @@ namespace {
         return {};
     }
 
+    struct Layer {
+        float r, g, b;
+    };
+
+    constexpr Layer kInk { 53.0f, 53.0f, 53.0f }; // outline + creases
+    constexpr Layer kPaper { 255.0f, 255.0f, 255.0f };
+    constexpr Layer kBadge { 240.0f, 122.0f, 112.0f };
+
 }
 
 CursorArt paint_cursor(int imgui_slot, int size)
@@ -256,32 +275,47 @@ CursorArt paint_cursor(int imgui_slot, int size)
     art.px.assign(static_cast<std::size_t>(size) * size, 0u);
     const float to_art = 100.0f / static_cast<float>(size);
     const float to_px = 1.0f / to_art;
-    constexpr float kRim = 5.5f; // art units; ~1.8px on a 32px cursor
+    constexpr float kRim = 4.2f; // art units: 2px on the school's 48px
     constexpr float kAA = 1.0f;  // device pixels
-    const std::uint32_t ink_r = 0x1d, ink_g = 0x1d, ink_b = 0x21;
 
     for (int y = 0; y < size; ++y) {
         for (int x = 0; x < size; ++x) {
-            const V p { (static_cast<float>(x) + 0.5f) * to_art,
+            V p { (static_cast<float>(x) + 0.5f) * to_art,
                 (static_cast<float>(y) + 0.5f) * to_art };
-            const float d_px = shape.eval(p) * to_px;
-            const float body = clampf(0.5f - d_px / kAA, 0.0f, 1.0f);
-            const float rim
-                = clampf(0.5f - (d_px - kRim * to_px) / kAA, 0.0f, 1.0f);
-            // Ink over a white underlay, straight alpha out — the
-            // same convention the .cur loader and shadow baker speak.
-            const float oa = body + rim * (1.0f - body);
-            if (oa <= 0.0f)
-                continue;
-            const auto ch = [&](std::uint32_t ink) {
-                const float c
-                    = (ink * body + 255.0f * rim * (1.0f - body)) / oa;
-                return static_cast<std::uint32_t>(
-                    clampf(c + 0.5f, 0.0f, 255.0f));
+            if (shape.rot != 0.0f)
+                p = rotated(p, { 50.0f, 50.0f }, -shape.rot);
+
+            const float body = shape.body(p) * to_px;
+            const float accent = shape.accent(p) * to_px;
+            // The outline hugs body and badge alike.
+            const float rim = std::min(body, accent) - kRim * to_px;
+            const float crease = shape.crease(p) * to_px;
+            const float mark = shape.mark(p) * to_px;
+
+            // Bottom to top: outline, paper, badge, crease strokes.
+            float out_r = 0.0f, out_g = 0.0f, out_b = 0.0f, out_a = 0.0f;
+            const auto over = [&](const Layer& c, float d_px) {
+                const float cov = clampf(0.5f - d_px / kAA, 0.0f, 1.0f);
+                if (cov <= 0.0f)
+                    return;
+                const float a = cov + out_a * (1.0f - cov);
+                out_r = (c.r * cov + out_r * out_a * (1.0f - cov)) / a;
+                out_g = (c.g * cov + out_g * out_a * (1.0f - cov)) / a;
+                out_b = (c.b * cov + out_b * out_a * (1.0f - cov)) / a;
+                out_a = a;
             };
+            over(kInk, rim);
+            over(kPaper, body);
+            over(kBadge, accent);
+            over(kInk, std::min(crease, mark));
+
+            if (out_a <= 0.0f)
+                continue;
             art.px[static_cast<std::size_t>(y) * size + x]
-                = (static_cast<std::uint32_t>(oa * 255.0f + 0.5f) << 24)
-                | (ch(ink_r) << 16) | (ch(ink_g) << 8) | ch(ink_b);
+                = (static_cast<std::uint32_t>(out_a * 255.0f + 0.5f) << 24)
+                | (static_cast<std::uint32_t>(out_r + 0.5f) << 16)
+                | (static_cast<std::uint32_t>(out_g + 0.5f) << 8)
+                | static_cast<std::uint32_t>(out_b + 0.5f);
         }
     }
 
