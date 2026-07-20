@@ -67,6 +67,12 @@ private:
     bool framed_ = false;
     int drag_ = -1;
     int resize_ = -1;
+    // Absolute grab anchors: position follows the cursor exactly
+    // (pos = mouse - grab), never an accumulation of deltas — deltas
+    // rubber-band the moment a clamp eats part of one.
+    ImVec2 grab_offset_ {};
+    ImVec2 grab_size_ {};
+    ImVec2 grab_mouse_ {};
     int spawn_count_ = 0;
     ImVec2 ws_min_ {};
     ImVec2 ws_max_ {};

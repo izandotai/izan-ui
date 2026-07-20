@@ -116,19 +116,22 @@ void Wm::frame(
             drag_ = -1;
         } else {
             WindowState& w = windows_[static_cast<std::size_t>(drag_)];
-            w.pos.x += io.MouseDelta.x;
-            w.pos.y += io.MouseDelta.y;
-            w.pos.x = std::clamp(
-                w.pos.x, ws_min.x - w.size.x + em * 6.0f, ws_max.x - em * 6.0f);
-            w.pos.y = std::clamp(w.pos.y, ws_min.y, ws_max.y - title_h);
+            // Absolute: the window sits under the same point of its
+            // title the whole drag, so a clamp never desyncs it.
+            w.pos.x = std::clamp(io.MousePos.x - grab_offset_.x,
+                ws_min.x - w.size.x + em * 6.0f, ws_max.x - em * 6.0f);
+            w.pos.y = std::clamp(io.MousePos.y - grab_offset_.y, ws_min.y,
+                ws_max.y - title_h);
         }
     } else if (resize_ >= 0) {
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             resize_ = -1;
         } else {
             WindowState& w = windows_[static_cast<std::size_t>(resize_)];
-            w.size.x = std::max(em * 16.0f, w.size.x + io.MouseDelta.x);
-            w.size.y = std::max(em * 10.0f, w.size.y + io.MouseDelta.y);
+            w.size.x = std::max(
+                em * 16.0f, grab_size_.x + (io.MousePos.x - grab_mouse_.x));
+            w.size.y = std::max(
+                em * 10.0f, grab_size_.y + (io.MousePos.y - grab_mouse_.y));
         }
     } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
         && !inside(io.MousePos, blocked_min, blocked_max)) {
@@ -152,11 +155,16 @@ void Wm::frame(
             const bool in_grip = !w.maximized
                 && io.MousePos.x > rmax.x - em * 1.2f
                 && io.MousePos.y > rmax.y - em * 1.2f;
-            if (in_grip)
+            if (in_grip) {
                 resize_ = *it;
-            else if (!w.maximized && !on_control
-                && io.MousePos.y < rmin.y + title_h)
+                grab_size_ = w.size;
+                grab_mouse_ = io.MousePos;
+            } else if (!w.maximized && !on_control
+                && io.MousePos.y < rmin.y + title_h) {
                 drag_ = *it;
+                grab_offset_
+                    = { io.MousePos.x - w.pos.x, io.MousePos.y - w.pos.y };
+            }
             break; // the topmost hit consumes the click
         }
     }
