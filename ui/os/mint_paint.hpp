@@ -41,6 +41,23 @@ void control_icon(ImDrawList* draw, ImVec2 center, int control, bool restore,
 void window_shadow(
     ImDrawList* draw, ImVec2 min, ImVec2 max, float rounding, float scale);
 
+// One input field, one contract: the painted well is the only
+// visible box — the imgui input inside is naked (no background, no
+// border, no nav ring) and rides vertically centered, measured off
+// its own frame height. Styles vary by parameters; the discipline is
+// inherited by every variant.
+struct FieldStyle {
+    ImU32 bg = IM_COL32(255, 255, 255, 255);
+    ImU32 border = IM_COL32(72, 76, 73, 54);
+    ImU32 text = IM_COL32(52, 55, 53, 255);
+    ImU32 hint = IM_COL32(138, 142, 139, 255);
+    float inset_x = 10.0f; // logical px from the well to the text
+    float rounding = 6.0f; // logical px
+};
+
+bool mint_input(const char* id, const char* hint_text, char* buf,
+    std::size_t size, ImVec2 min, ImVec2 max, const FieldStyle& style);
+
 void text_at(ImDrawList* draw, ImVec2 pos, ImU32 color, std::string_view value,
     float size);
 void text_centered(ImDrawList* draw, ImVec2 center, ImU32 color,

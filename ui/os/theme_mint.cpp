@@ -66,21 +66,17 @@ namespace {
             draw->AddLine({ rmin.x, title_max.y }, { rmax.x, title_max.y },
                 IM_COL32(69, 73, 70, 45), 1.0f);
 
-            // Identity on the left: the app's mark, then its name.
+            // Identity on the left: mark and name in one string, one
+            // draw — two separate draws each center their own glyph
+            // box and the emoji drifts off the text's baseline.
             {
-                const float title_font = kFontWindowTitle * s;
-                ImGui::PushFont(nullptr, title_font);
-                const ImVec2 ms = ImGui::CalcTextSize(look.app->mark());
-                draw->AddText(ImGui::GetFont(), title_font,
-                    { rmin.x + 14.0f * s,
-                        (rmin.y + title_max.y) * 0.5f - ms.y * 0.5f },
-                    IM_COL32_WHITE, look.app->mark());
-                ImGui::PopFont();
-                text_vcentered(draw, rmin.x + 43.0f * s,
+                const std::string title
+                    = std::string(look.app->mark()) + "  " + look.app->name();
+                text_vcentered(draw, rmin.x + 14.0f * s,
                     (rmin.y + title_max.y) * 0.5f,
                     look.focused ? IM_COL32(47, 51, 48, 255)
                                  : IM_COL32(47, 51, 48, 150),
-                    look.app->name(), title_font);
+                    title, kFontWindowTitle * s);
             }
 
             // Controls: bare glyphs, a wash behind the hovered one,

@@ -121,10 +121,12 @@ public:
             (path_min.y + path_max.y) * 0.5f, IM_COL32(55, 59, 56, 255), "Home",
             kFontBody * s);
 
-        draw->AddRectFilled(
-            search_min, search_max, IM_COL32(255, 255, 255, 255), 6.0f * s);
-        draw->AddRect(search_min, search_max, IM_COL32(72, 76, 73, 54),
-            6.0f * s, 0, 1.0f);
+        // The shared input component wears the white suit here; the
+        // magnifier is the caller's garnish, painted over the well.
+        FieldStyle search_style;
+        search_style.inset_x = 29.0f;
+        mint_input("##nemo-search", "Search files", search_.data(),
+            search_.size(), search_min, search_max, search_style);
         const ImVec2 magnifier { search_min.x + 16.0f * s,
             (search_min.y + search_max.y) * 0.5f };
         draw->AddCircle(
@@ -132,21 +134,6 @@ public:
         draw->AddLine({ magnifier.x + 3.7f * s, magnifier.y + 3.7f * s },
             { magnifier.x + 7.2f * s, magnifier.y + 7.2f * s },
             IM_COL32(113, 117, 114, 255), 1.3f * s);
-        ImGui::SetCursorScreenPos(
-            { search_min.x + 29.0f * s, search_min.y + 3.0f * s });
-        ImGui::SetNextItemWidth(search_max.x - search_min.x - 35.0f * s);
-        ImGui::PushFont(nullptr, kFontBody * s);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 3.0f * s, 3.0f * s });
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(52, 55, 53, 255));
-        ImGui::PushStyleColor(
-            ImGuiCol_TextDisabled, IM_COL32(138, 142, 139, 255));
-        ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));
-        ImGui::InputTextWithHint(
-            "##nemo-search", "Search files", search_.data(), search_.size());
-        ImGui::PopStyleColor(4);
-        ImGui::PopStyleVar();
-        ImGui::PopFont();
 
         // The sidebar of places.
         const ImVec2 content_min { min.x, toolbar_max.y };

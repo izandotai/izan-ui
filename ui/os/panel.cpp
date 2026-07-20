@@ -236,28 +236,18 @@ void Panel::draw_menu(
     draw->AddRectFilled(min, max, IM_COL32(42, 45, 45, 248), 8.0f * s);
     draw->AddRect(min, max, IM_COL32(255, 255, 255, 38), 8.0f * s, 0, 1.0f);
 
-    // The search field.
+    // The search field: the shared input component in its dark suit.
     const ImVec2 search_min { min.x + 18.0f * s, min.y + 17.0f * s };
     const ImVec2 search_max { max.x - 18.0f * s, min.y + 59.0f * s };
-    draw->AddRectFilled(
-        search_min, search_max, IM_COL32(28, 30, 30, 255), 5.0f * s);
-    draw->AddRect(
-        search_min, search_max, IM_COL32(109, 190, 69, 120), 5.0f * s, 0, 1.0f);
-    ImGui::SetCursorScreenPos(
-        { search_min.x + 10.0f * s, search_min.y + 4.0f * s });
-    ImGui::SetNextItemWidth(search_max.x - search_min.x - 20.0f * s);
-    ImGui::PushFont(nullptr, kFontBody * s);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 4.0f * s, 3.0f * s });
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(230, 232, 231, 255));
-    ImGui::PushStyleColor(ImGuiCol_TextDisabled, IM_COL32(151, 155, 152, 255));
-    ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));
-    ImGui::InputTextWithHint("##cinnamon-search",
-        "Type to search applications…", menu_search_.data(),
-        menu_search_.size());
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar();
-    ImGui::PopFont();
+    FieldStyle search_style;
+    search_style.bg = IM_COL32(28, 30, 30, 255);
+    search_style.border = IM_COL32(109, 190, 69, 120);
+    search_style.text = IM_COL32(230, 232, 231, 255);
+    search_style.hint = IM_COL32(151, 155, 152, 255);
+    search_style.rounding = 5.0f;
+    mint_input("##cinnamon-search", "Type to search applications…",
+        menu_search_.data(), menu_search_.size(), search_min, search_max,
+        search_style);
 
     // The category column.
     const float categories_width = 190.0f * s;

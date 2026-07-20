@@ -124,6 +124,34 @@ void window_shadow(
     }
 }
 
+bool mint_input(const char* id, const char* hint_text, char* buf,
+    std::size_t size, ImVec2 min, ImVec2 max, const FieldStyle& style)
+{
+    const float s = mint_scale();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(min, max, style.bg, style.rounding * s);
+    draw->AddRect(min, max, style.border, style.rounding * s, 0, 1.0f);
+
+    const float pad = 3.0f * s;
+    const float input_h = kFontBody * s + 2.0f * pad;
+    ImGui::SetCursorScreenPos(
+        { min.x + style.inset_x * s, (min.y + max.y - input_h) * 0.5f });
+    ImGui::SetNextItemWidth(max.x - min.x - 2.0f * style.inset_x * s);
+    ImGui::PushFont(nullptr, kFontBody * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { pad, pad });
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text, style.text);
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, style.hint);
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));
+    const bool changed = ImGui::InputTextWithHint(id, hint_text, buf, size);
+    ImGui::PopStyleColor(5);
+    ImGui::PopStyleVar(2);
+    ImGui::PopFont();
+    return changed;
+}
+
 void text_at(ImDrawList* draw, ImVec2 pos, ImU32 color, std::string_view value,
     float size)
 {
