@@ -35,7 +35,15 @@ FetchContent_Declare(imgui
     DOWNLOAD_EXTRACT_TIMESTAMP ON
     EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(glfw freetype imgui)
+# nanosvg (zlib license): tiny SVG parser + CPU rasterizer, the road
+# from Noto emoji artwork to textures. Header-only; no release tags,
+# pinned by commit.
+FetchContent_Declare(nanosvg
+    URL https://github.com/memononen/nanosvg/archive/239e102ec2c691f2902e20ace2ed36ee4a35cfe6.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(glfw freetype imgui nanosvg)
 
 find_package(OpenGL REQUIRED)
 

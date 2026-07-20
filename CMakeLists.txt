@@ -143,11 +143,22 @@ endfunction()
 # new implementation, the kernel untouched.
 if(IZAN_UI_SHELL)
     # Analytic (SDF) drawing: shader-measured coverage for rounded
-    # shapes — smooth at any zoom, cheaper than polygon fans.
-    add_library(izan_render STATIC ui/render/sdf_rect.cpp)
+    # shapes — smooth at any zoom, cheaper than polygon fans. Plus the
+    # SVG road: Noto emoji artwork rasterized through nanosvg.
+    add_library(izan_render STATIC
+        ui/render/sdf_rect.cpp
+        ui/render/svg_raster.cpp
+    )
     add_library(izan::render ALIAS izan_render)
     target_include_directories(izan_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(
+        izan_render PRIVATE ${nanosvg_SOURCE_DIR}/src)
     target_link_libraries(izan_render PUBLIC izan_imgui PRIVATE glfw)
+
+    # Proof sheet: SVG icons rasterized at UI sizes to a BMP, no
+    # window needed.
+    add_executable(izan_svg_sheet tools/svg_sheet.cpp)
+    target_link_libraries(izan_svg_sheet PRIVATE izan_render)
 
     add_library(izan_os STATIC
         ui/os/mint_paint.cpp
