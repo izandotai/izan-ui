@@ -859,6 +859,9 @@ int main(int argc, char** argv)
                 os::mint_theme(), desk_size, ImGui::GetFontSize()));
         shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h), desk_size);
         draw_mint_host_frame(app.window());
+        // Window in hand → the cursor rides in the frame, pixel-locked
+        // to what it drags; hands off → hardware cursor, zero latency.
+        ui::draw_inframe_cursor(shell.wm().interacting());
 
         if (caret_probe) {
             ImGuiIO& io = ImGui::GetIO();

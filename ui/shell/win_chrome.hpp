@@ -60,5 +60,12 @@ bool install_custom_cursors(const std::filesystem::path& dir);
 bool custom_cursors_active();
 void apply_custom_cursor();                      // by ImGui::GetMouseCursor()
 void apply_custom_cursor_slot(int imgui_cursor); // explicit slot (frame)
+// The in-frame cursor: while active (a window drag/resize), the
+// hardware cursor hides and the arrow — the loaded .cur pack's or the
+// system's, rendered to a texture on first use — is drawn into the
+// frame at the mouse position. Cursor and dragged content then move
+// as one set of pixels: zero relative slip, the last latency a
+// hardware cursor cannot shed. Call every frame after the UI.
+void draw_inframe_cursor(bool active);
 
 }

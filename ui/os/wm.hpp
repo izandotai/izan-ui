@@ -55,6 +55,14 @@ public:
 
     App* focused() const;
     bool running(const App* app) const;
+
+    // A drag or resize in flight — the host draws the cursor in-frame
+    // during these so window and cursor can never slip apart.
+    bool interacting() const
+    {
+        return drag_ >= 0 || resize_ >= 0;
+    }
+
     bool minimized(const App* app) const;
 
 private:

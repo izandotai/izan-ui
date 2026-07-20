@@ -16,6 +16,10 @@
 #include <windows.h>
 #endif
 
+#if !defined(__APPLE__) && defined(_WIN32)
+#include <GL/gl.h>
+#endif
+
 #include <imgui.h>
 
 #include <algorithm>
@@ -179,6 +183,7 @@ namespace {
     }
 #endif
     bool g_active = false;
+    bool g_inframe = false; // drag in flight: hardware cursor stands down
 }
 
 bool custom_cursors_active()
@@ -226,6 +231,116 @@ bool install_custom_cursors(const std::filesystem::path& dir)
 #endif
 }
 
+namespace {
+
+#ifdef _WIN32
+    // The arrow rendered to a texture, hotspot and all — the in-frame
+    // cursor's pixels. Extracted once from whichever arrow is live:
+    // the loaded pack's (shadow already baked) or the system's.
+    struct CursorTex {
+        ImTextureID tex = 0;
+        ImVec2 hot {};
+        ImVec2 size {};
+        bool tried = false;
+    };
+
+    CursorTex g_arrow_tex;
+
+    const CursorTex& arrow_texture()
+    {
+        CursorTex& ct = g_arrow_tex;
+        if (ct.tried)
+            return ct;
+        ct.tried = true;
+        HCURSOR src = g_custom[ImGuiMouseCursor_Arrow];
+        if (src == nullptr)
+            src = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512) /*IDC_ARROW*/);
+        if (src == nullptr)
+            return ct;
+        ICONINFO ii {};
+        if (!GetIconInfo(src, &ii))
+            return ct;
+
+        struct BmpGuard {
+            HBITMAP a, b;
+
+            ~BmpGuard()
+            {
+                if (a)
+                    DeleteObject(a);
+                if (b)
+                    DeleteObject(b);
+            }
+        } guard { ii.hbmColor, ii.hbmMask };
+
+        if (!ii.hbmColor)
+            return ct; // monochrome cursor: no alpha to lift
+        BITMAP bm {};
+        if (!GetObject(ii.hbmColor, sizeof bm, &bm) || bm.bmWidth <= 0
+            || bm.bmHeight <= 0)
+            return ct;
+        const int w = bm.bmWidth, h = bm.bmHeight;
+        HDC dc = CreateCompatibleDC(nullptr);
+        BITMAPINFO bi {};
+        bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bi.bmiHeader.biWidth = w;
+        bi.bmiHeader.biHeight = -h; // top-down
+        bi.bmiHeader.biPlanes = 1;
+        bi.bmiHeader.biBitCount = 32;
+        bi.bmiHeader.biCompression = BI_RGB;
+        std::vector<uint32_t> px(static_cast<size_t>(w) * h);
+        const int got
+            = GetDIBits(dc, ii.hbmColor, 0, h, px.data(), &bi, DIB_RGB_COLORS);
+        DeleteDC(dc);
+        if (got != h)
+            return ct;
+        // BGRA → RGBA for GL, straight alpha as imgui blends it.
+        for (uint32_t& p : px)
+            p = (p & 0xff00ff00u) | ((p & 0xffu) << 16) | ((p >> 16) & 0xffu);
+        unsigned tex = 0;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, w, h, 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, px.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        ct.tex = static_cast<ImTextureID>(tex);
+        ct.hot = { static_cast<float>(ii.xHotspot),
+            static_cast<float>(ii.yHotspot) };
+        ct.size = { static_cast<float>(w), static_cast<float>(h) };
+        return ct;
+    }
+#endif
+
+}
+
+void draw_inframe_cursor(bool active)
+{
+#ifdef _WIN32
+    if (!active) {
+        g_inframe = false;
+        return;
+    }
+    const CursorTex& ct = arrow_texture();
+    if (ct.tex == 0) {
+        g_inframe = false; // no pixels to show: keep the hardware cursor
+        return;
+    }
+    g_inframe = true;
+    if (!g_active) {
+        // No custom pack: the imgui/glfw backend owns the shape —
+        // asking for None makes it hide the hardware cursor properly.
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+    }
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const ImVec2 p0 { mouse.x - ct.hot.x, mouse.y - ct.hot.y };
+    const ImVec2 p1 { p0.x + ct.size.x, p0.y + ct.size.y };
+    ImGui::GetForegroundDrawList()->AddImage(ct.tex, p0, p1);
+#else
+    (void)active;
+#endif
+}
+
 void apply_custom_cursor_slot(int imgui_cursor)
 {
 #ifdef _WIN32
@@ -250,6 +365,12 @@ void apply_custom_cursor()
 {
     if (!g_active || ImGui::GetCurrentContext() == nullptr)
         return;
+    // A drag in flight: the in-frame cursor owns the pixels, the
+    // hardware cursor stays down (this path also serves WM_SETCURSOR).
+    if (g_inframe) {
+        apply_custom_cursor_slot(ImGuiMouseCursor_None);
+        return;
+    }
 #ifdef _WIN32
     // Only override while the mouse is truly in the client area. The
     // borders and caption belong to WM_SETCURSOR — otherwise the render
