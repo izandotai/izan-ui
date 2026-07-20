@@ -55,9 +55,24 @@ public:
         ImVec2 rmin, ImVec2 rmax, float em) const
         = 0;
 
+    // The backdrop art alone. Hosts that supply their own backdrop
+    // (an SVG or shader wallpaper) skip this and still get the
+    // desktop furniture below.
     virtual void paint_wallpaper(
         ImDrawList* draw, ImVec2 min, ImVec2 max, float em) const
         = 0;
+
+    // The desktop furniture (icons, labels) that lives on whatever
+    // backdrop is showing. The shell calls it every frame after the
+    // wallpaper — painted or blitted alike.
+    virtual void paint_desktop_icons(
+        ImDrawList* draw, ImVec2 min, ImVec2 max, float em) const
+    {
+        (void)draw;
+        (void)min;
+        (void)max;
+        (void)em;
+    }
 };
 
 // The working development skin: Mint-cultured — bottom panel,

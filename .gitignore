@@ -1,2 +1,6 @@
 build*/
 *.exe
+# 光标包不入仓：kuda 等第三方 .cur/.ani 无再分发授权——本地测试自行
+# 拷入 ui/assets/cursors/，发行版由官网留下载链接叫用户自装
+ui/assets/cursors/*.cur
+ui/assets/cursors/*.ani

@@ -22,9 +22,12 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "ui/render/svg_raster.hpp"
 
 #include "ui/os/mint_paint.hpp"
 #include "ui/os/shell.hpp"
@@ -533,10 +536,86 @@ void draw_mint_host_frame(GLFWwindow* window)
         IM_COL32(255, 255, 255, 38), maximized ? 0.0f : 9.0f * s, 0, 1.0f);
 }
 
-// ---- the wallpaper cache: the theme's painter runs once per size
-// into a texture; every frame after that is a single blit ----
+// ---- the SVG wallpaper: assets/wallpaper/mint-waves.svg (or the
+// IZAN_OS_WALLPAPER file) rastered at desktop size through the SVG
+// road, uploaded once per size; IZAN_OS_WALLPAPER=paint keeps the
+// theme's painted backdrop ----
 
 typedef unsigned int GLuint_t;
+
+class SvgWallpaper {
+public:
+    // 0 while unavailable (no file / parse failure / painted mode).
+    ImTextureID texture(ImVec2 size)
+    {
+        const int w = static_cast<int>(size.x);
+        const int h = static_cast<int>(size.y);
+        if (broken_ || w <= 0 || h <= 0)
+            return 0;
+        if (tex_ != 0 && w == w_ && h == h_)
+            return static_cast<ImTextureID>(tex_);
+        // A full-desk CPU raster costs tens of ms — never per resize
+        // tick. While the size is still moving the old bake stretches
+        // (the shell blits to the current rect regardless); the crisp
+        // rebake waits for the size to settle.
+        const double now = ImGui::GetTime();
+        if (w != pend_w_ || h != pend_h_) {
+            pend_w_ = w;
+            pend_h_ = h;
+            pend_since_ = now;
+        }
+        if (tex_ != 0 && now - pend_since_ < 0.25)
+            return static_cast<ImTextureID>(tex_);
+        if (svg_.empty()) {
+            const char* pick = std::getenv("IZAN_OS_WALLPAPER");
+            if (pick && std::string_view(pick) == "paint") {
+                broken_ = true; // painted mode by request
+                return 0;
+            }
+            const std::filesystem::path path = pick && *pick
+                ? std::filesystem::path(pick)
+                : ui::executable_dir() / "assets" / "wallpaper"
+                    / "mint-waves.svg";
+            std::ifstream in(path, std::ios::binary);
+            if (!in) {
+                broken_ = true;
+                return 0;
+            }
+            std::stringstream text;
+            text << in.rdbuf();
+            svg_ = text.str();
+        }
+        const izan::render::SvgBitmap art
+            = izan::render::raster_svg_cover(svg_.c_str(), w, h);
+        if (art.empty()) {
+            broken_ = true;
+            return 0;
+        }
+        if (tex_ == 0)
+            glGenTextures(1, &tex_);
+        glBindTexture(GL_TEXTURE_2D, tex_);
+        glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, w, h, 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, art.rgba.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        w_ = w;
+        h_ = h;
+        return static_cast<ImTextureID>(tex_);
+    }
+
+private:
+    std::string svg_;
+    GLuint_t tex_ = 0;
+    int w_ = 0;
+    int h_ = 0;
+    int pend_w_ = 0;
+    int pend_h_ = 0;
+    double pend_since_ = 0.0;
+    bool broken_ = false;
+};
+
+// ---- the wallpaper cache: the theme's painter runs once per size
+// into a texture; every frame after that is a single blit ----
 
 class WallpaperCache {
 public:
@@ -757,6 +836,7 @@ int main(int argc, char** argv)
         first = &icons;
     shell.wm().launch(first);
     WallpaperCache wallpaper;
+    SvgWallpaper svg_wallpaper;
 
     int rendered_frames = 0;
     app.set_render_callback([&] {
@@ -768,8 +848,15 @@ int main(int argc, char** argv)
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float bar_h = kFrameHeight * mint_scale();
         const ImVec2 desk_size(vp->Size.x, vp->Size.y - bar_h);
-        shell.set_wallpaper(wallpaper.texture(
-            os::mint_theme(), desk_size, ImGui::GetFontSize()));
+        // SVG backdrop first choice; the FBO-baked painter is the
+        // fallback when no file renders. Uploaded textures are
+        // top-down, so the UVs go straight (the FBO bake is
+        // bottom-up and keeps the flipped default).
+        if (ImTextureID svg_tex = svg_wallpaper.texture(desk_size))
+            shell.set_wallpaper(svg_tex, { 0.0f, 0.0f }, { 1.0f, 1.0f });
+        else
+            shell.set_wallpaper(wallpaper.texture(
+                os::mint_theme(), desk_size, ImGui::GetFontSize()));
         shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h), desk_size);
         draw_mint_host_frame(app.window());
 

@@ -166,8 +166,17 @@ namespace {
                 IM_COL32(9, 56, 61, 55));
             mint_logo(draw, { min.x + view.x * 0.72f, min.y + view.y * 0.51f },
                 std::clamp(basis * 0.095f, 72.0f, 118.0f));
+        }
 
-            // The desktop icons live on the wallpaper.
+        // The desktop icons live on whatever backdrop is showing —
+        // painted bands or a blitted texture — so they are their own
+        // pass, called by the shell after the wallpaper.
+        void paint_desktop_icons(
+            ImDrawList* draw, ImVec2 min, ImVec2 max, float) const override
+        {
+            const float s = mint_scale();
+            (void)max;
+
             struct Item {
                 const char* name;
                 float y;

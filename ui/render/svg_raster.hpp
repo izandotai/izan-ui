@@ -23,4 +23,8 @@ struct SvgBitmap {
 // preserved and centered. Returns an empty bitmap on parse failure.
 SvgBitmap raster_svg(const char* svg_text, int px);
 
+// Cover semantics for backdrops: fills the whole w×h box, aspect
+// preserved, overflow cropped equally — a wallpaper never letterboxes.
+SvgBitmap raster_svg_cover(const char* svg_text, int w, int h);
+
 }

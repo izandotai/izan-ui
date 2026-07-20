@@ -34,6 +34,8 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
             wallpaper_, pos, view_max, wallpaper_uv0_, wallpaper_uv1_);
     else
         wm_.theme().paint_wallpaper(draw, pos, view_max, em);
+    // Furniture rides on either backdrop, painted or blitted.
+    wm_.theme().paint_desktop_icons(draw, pos, view_max, em);
     draw->PopClipRect();
     ImGui::End();
     ImGui::PopStyleColor();

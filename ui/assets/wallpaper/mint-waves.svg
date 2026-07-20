@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- izan OS default wallpaper: aurora over layered waves, drawn for
+     the Mint working skin. Original artwork; gradients and paths only,
+     inside the nanosvg-renderable subset (no filters, no blurs). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200">
+  <defs>
+    <linearGradient id="sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1200">
+      <stop offset="0" stop-color="#183830"/>
+      <stop offset="0.55" stop-color="#10281f"/>
+      <stop offset="1" stop-color="#0a1c15"/>
+    </linearGradient>
+    <radialGradient id="glow1" gradientUnits="userSpaceOnUse" cx="1430" cy="290" r="720">
+      <stop offset="0" stop-color="#69b04c" stop-opacity="0.34"/>
+      <stop offset="0.5" stop-color="#4a9553" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#4a9553" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" gradientUnits="userSpaceOnUse" cx="360" cy="880" r="640">
+      <stop offset="0" stop-color="#1f7a68" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#1f7a68" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="star" gradientUnits="userSpaceOnUse" cx="1430" cy="290" r="160">
+      <stop offset="0" stop-color="#c9e8b4" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#c9e8b4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="w1" gradientUnits="userSpaceOnUse" x1="0" y1="640" x2="0" y2="1200">
+      <stop offset="0" stop-color="#2b5c49" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#173428" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="w2" gradientUnits="userSpaceOnUse" x1="0" y1="760" x2="0" y2="1200">
+      <stop offset="0" stop-color="#204a3c" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#122a20" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="w3" gradientUnits="userSpaceOnUse" x1="0" y1="900" x2="0" y2="1200">
+      <stop offset="0" stop-color="#16362a" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#0c1f16" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="ridge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1920" y2="0">
+      <stop offset="0" stop-color="#7ec25f" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#7ec25f" stop-opacity="0.35"/>
+      <stop offset="0.75" stop-color="#9ad67e" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7ec25f" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1920" height="1200" fill="url(#sky)"/>
+  <rect x="0" y="0" width="1920" height="1200" fill="url(#glow1)"/>
+  <rect x="0" y="0" width="1920" height="1200" fill="url(#glow2)"/>
+  <rect x="0" y="0" width="1920" height="1200" fill="url(#star)"/>
+
+  <!-- far wave -->
+  <path fill="url(#w1)" d="M0,760
+    C 260,690 480,830 760,780
+    C 1040,730 1240,600 1500,660
+    C 1680,700 1800,650 1920,600
+    L 1920,1200 L 0,1200 Z"/>
+  <!-- its lit ridge -->
+  <path fill="url(#ridge)" d="M0,760
+    C 260,690 480,830 760,780
+    C 1040,730 1240,600 1500,660
+    C 1680,700 1800,650 1920,600
+    L 1920,608 C 1800,658 1680,708 1500,668
+    C 1240,608 1040,738 760,788
+    C 480,838 260,698 0,768 Z"/>
+  <!-- middle wave -->
+  <path fill="url(#w2)" d="M0,900
+    C 300,960 560,840 880,890
+    C 1180,935 1420,860 1640,900
+    C 1760,922 1860,905 1920,890
+    L 1920,1200 L 0,1200 Z"/>
+  <!-- near wave -->
+  <path fill="url(#w3)" d="M0,1050
+    C 320,990 640,1080 980,1040
+    C 1300,1002 1580,1075 1920,1020
+    L 1920,1200 L 0,1200 Z"/>
+</svg>
