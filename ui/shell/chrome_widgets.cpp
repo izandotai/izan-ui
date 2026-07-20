@@ -157,9 +157,23 @@ void draw_main_window_frame(const ChromeState& app)
         viewport->Pos.y + viewport->Size.y - kWindowFrameMargin);
     const ImVec2 chrome_max(max.x, min.y + kTitleBarHeight + kMenuBarHeight);
 
-    draw_list->AddRectFilled(min, max, theme_frame_background_color(app), 8.0f);
-    draw_list->AddRectFilled(min, chrome_max,
-        theme_chrome_background_color(app), 8.0f, ImDrawFlags_RoundCornersTop);
+    {
+        // The app frame corners are analytic too - the polygon arcs
+        // showed as stair-steps against the desktop (2026-07-20).
+        render::SdfRect body;
+        body.min = min;
+        body.max = max;
+        body.radius[0] = body.radius[1] = body.radius[2] = body.radius[3]
+            = 8.0f;
+        body.fill = theme_frame_background_color(app);
+        render::sdf_rect(draw_list, body);
+        render::SdfRect chrome_fill;
+        chrome_fill.min = min;
+        chrome_fill.max = chrome_max;
+        chrome_fill.radius[0] = chrome_fill.radius[1] = 8.0f;
+        chrome_fill.fill = theme_chrome_background_color(app);
+        render::sdf_rect(draw_list, chrome_fill);
+    }
     draw_list->AddLine(ImVec2(min.x, min.y + kTitleBarHeight),
         ImVec2(max.x, min.y + kTitleBarHeight),
         theme_chrome_line_color(app, 200), 1.0f);
