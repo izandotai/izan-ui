@@ -147,6 +147,7 @@ if(IZAN_UI_SHELL)
     # SVG road: Noto emoji artwork rasterized through nanosvg.
     add_library(izan_render STATIC
         ui/render/image_load.cpp
+        ui/render/svg_icon.cpp
         ui/render/sdf_rect.cpp
         ui/render/svg_raster.cpp
     )

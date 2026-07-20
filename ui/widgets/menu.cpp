@@ -24,9 +24,11 @@ namespace {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 11.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 12.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        // Captured, never pushed — see the dialog shell's note on the
+        // stolen transparent push; NoBackground on the popup flags is
+        // theft-proof.
         g_menu_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
         g_menu_bg.w = 1.0f;
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
     }
 
     void paint_menu_shell()
@@ -43,7 +45,6 @@ namespace {
 
     void pop_menu_style()
     {
-        ImGui::PopStyleColor();
         ImGui::PopStyleVar(4);
     }
 
@@ -52,7 +53,7 @@ namespace {
 bool kit_menu_begin(const char* id)
 {
     push_menu_style();
-    const bool open = ImGui::BeginPopup(id);
+    const bool open = ImGui::BeginPopup(id, ImGuiWindowFlags_NoBackground);
     if (!open) {
         pop_menu_style();
         return false;

@@ -64,13 +64,17 @@ namespace {
             ImVec2(em * dl.dialog_row_gap, em * dl.dialog_row_gap));
         ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, em * dl.dialog_radius);
         ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        // The panel color is only captured — never pushed. The
+        // transparent-PopupBg push was stolen once by an unbalanced
+        // pop elsewhere in a host frame (2026-07-20 wallet ring case:
+        // imgui then painted the popup in the theme color under our
+        // panel). NoBackground on the window flags does the same job
+        // outside the style stack's reach.
         g_panel_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
     }
 
     void pop_dialog_style()
     {
-        ImGui::PopStyleColor();
         ImGui::PopStyleVar(4);
     }
 
@@ -153,7 +157,7 @@ bool kit_dialog_begin(const char* id, bool* dismissed, bool escapable)
     }
     const bool open = ImGui::BeginPopupModal(id, nullptr,
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar
-            | ImGuiWindowFlags_NoMove);
+            | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
     if (!open) {
         pop_dialog_style();
         return false;

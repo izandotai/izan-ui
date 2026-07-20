@@ -38,11 +38,6 @@ namespace {
         // menus float just off the surface; modals hang in the air
         // with a wide, dropped umbra the way macOS alerts do.
         (void)blockers; // popups painted above cover their own patch
-        // 2026-07-20 isolation order: modal shadows OFF while the
-        // wallet's dialog fringe is hunted — if the artifact dies with
-        // them, the umbra is the culprit; menus keep theirs.
-        if (modal)
-            return;
         render::SdfRect shadow;
         const float drop = modal ? 4.0f : 1.0f;
         shadow.min = ImVec2(rect.Min.x, rect.Min.y + drop);

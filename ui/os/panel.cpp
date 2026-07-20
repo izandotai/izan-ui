@@ -1,5 +1,8 @@
 #include "ui/os/panel.hpp"
 
+#include "ui/render/svg_icon.hpp"
+#include "ui/shell/fonts.hpp"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -192,10 +195,27 @@ void Panel::frame(
     const float tray_right = clock_x - 20.0f * s;
     const ImU32 tray_ink = IM_COL32(235, 237, 236, 255);
     // This is a wallet OS, not a desktop: the tray speaks device
-    // links, not host plumbing. USB trident = the transport; chip =
-    // the hardware wallet on the other end. Both are still mute
-    // furniture — live status wiring comes with the device layer.
-    {
+    // links, not host plumbing. USB/plug = the transport; lock = the
+    // vault on the other end. Noto SVG textures first (hand-drawn
+    // primitives have no AA channel and jag — 2026-07-20 production
+    // verdict); the primitives below stay only as the no-assets
+    // fallback. Still mute furniture until the device layer lands.
+    const int icon_px = static_cast<int>(22.0f * s + 0.5f);
+    const auto noto = [&](const char* file) {
+        return izan::render::svg_icon(
+            ui::executable_dir() / "assets" / "noto" / file, icon_px);
+    };
+    const ImTextureID usb_tex = noto("emoji_u1f50c.svg");
+    const ImTextureID lock_tex = noto("emoji_u1f512.svg");
+    if (usb_tex != 0 && lock_tex != 0) {
+        const float half = icon_px * 0.5f;
+        const ImVec2 u { tray_right - 60.0f * s, center_y };
+        draw->AddImage(
+            usb_tex, { u.x - half, u.y - half }, { u.x + half, u.y + half });
+        const ImVec2 l { tray_right - 24.0f * s, center_y };
+        draw->AddImage(
+            lock_tex, { l.x - half, l.y - half }, { l.x + half, l.y + half });
+    } else {
         const ImVec2 c { tray_right - 60.0f * s, center_y };
         draw->AddLine({ c.x, c.y + 8.0f * s }, { c.x, c.y - 6.0f * s },
             tray_ink, 1.5f * s);
@@ -211,19 +231,17 @@ void Panel::frame(
             { c.x + 5.5f * s, c.y - 2.5f * s }, tray_ink, 1.5f * s);
         draw->AddCircleFilled(
             { c.x + 5.5f * s, c.y - 4.0f * s }, 1.9f * s, tray_ink, 12);
-    }
-    {
-        const ImVec2 c { tray_right - 24.0f * s, center_y };
-        draw->AddRect({ c.x - 5.5f * s, c.y - 4.5f * s },
-            { c.x + 5.5f * s, c.y + 4.5f * s }, tray_ink, 1.5f * s, 0,
+        const ImVec2 k { tray_right - 24.0f * s, center_y };
+        draw->AddRect({ k.x - 5.5f * s, k.y - 4.5f * s },
+            { k.x + 5.5f * s, k.y + 4.5f * s }, tray_ink, 1.5f * s, 0,
             1.5f * s);
-        draw->AddRectFilled({ c.x - 2.0f * s, c.y - 1.5f * s },
-            { c.x + 2.0f * s, c.y + 1.5f * s }, tray_ink);
+        draw->AddRectFilled({ k.x - 2.0f * s, k.y - 1.5f * s },
+            { k.x + 2.0f * s, k.y + 1.5f * s }, tray_ink);
         for (int i = -1; i <= 1; ++i) {
-            const float y = c.y + static_cast<float>(i) * 3.0f * s;
-            draw->AddLine({ c.x - 8.0f * s, y }, { c.x - 5.5f * s, y },
+            const float y = k.y + static_cast<float>(i) * 3.0f * s;
+            draw->AddLine({ k.x - 8.0f * s, y }, { k.x - 5.5f * s, y },
                 tray_ink, 1.3f * s);
-            draw->AddLine({ c.x + 5.5f * s, y }, { c.x + 8.0f * s, y },
+            draw->AddLine({ k.x + 5.5f * s, y }, { k.x + 8.0f * s, y },
                 tray_ink, 1.3f * s);
         }
     }
