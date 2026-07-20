@@ -66,18 +66,12 @@ namespace {
                 ImGui::GetColorU32(ImVec4(1, 1, 1, dark ? 0.07f : 0.55f)),
                 r + 0.5f, 0, 1.5f);
         });
-        // The rim, darker across the top — the opposite hand of the
-        // button's rim, same light. A 1px hairline breaks up on the
-        // rounded corners (anti-aliased arcs thin it to nothing); two
-        // pixels keep the ring closed all the way round.
+        // The rim: one solid stroke, the same color all the way
+        // round. A 1px hairline breaks up on the anti-aliased corner
+        // arcs; two pixels keep the ring closed.
         draw->AddRect(min, max,
             ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Separator)), r,
             0, 2.0f);
-        clipped(min.y, min.y + h * 0.5f, [&] {
-            draw->AddRect(min, max,
-                ImGui::GetColorU32(ImVec4(0, 0, 0, dark ? 0.32f : 0.16f)), r, 0,
-                2.0f);
-        });
 
         if (focused) {
             ImVec4 halo = kit_accent();
