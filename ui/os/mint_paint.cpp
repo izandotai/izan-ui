@@ -144,9 +144,13 @@ bool izan_input(const char* id, const char* hint_text, char* buf,
     ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_Text, style.text);
     ImGui::PushStyleColor(ImGuiCol_TextDisabled, style.hint);
+    // The caret has its own color slot since 1.92 - left to the
+    // theme it paints white-on-white inside a light well and
+    // vanishes. The caret wears the ink.
+    ImGui::PushStyleColor(ImGuiCol_InputTextCursor, style.text);
     ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));
     const bool changed = ImGui::InputTextWithHint(id, hint_text, buf, size);
-    ImGui::PopStyleColor(5);
+    ImGui::PopStyleColor(6);
     ImGui::PopStyleVar(2);
     ImGui::PopFont();
     return changed;

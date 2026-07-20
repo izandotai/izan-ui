@@ -1,6 +1,7 @@
 #include "ui/render/sdf_rect.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstdint>
 #include <vector>
 
@@ -232,7 +233,10 @@ namespace {
 
 void sdf_rect(ImDrawList* draw, const SdfRect& rect)
 {
-    if (program().failed) {
+    // IZAN_SDF_OFF=1 forces the polygon fallback - the A/B switch
+    // for isolating shader-path side effects.
+    static const bool forced_off = std::getenv("IZAN_SDF_OFF") != nullptr;
+    if (forced_off || program().failed) {
         // The polygon path is the honest fallback: one radius, the
         // largest requested, and the classic stroked rim.
         const float r = std::max(std::max(rect.radius[0], rect.radius[1]),

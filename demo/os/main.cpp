@@ -725,6 +725,11 @@ int main(int argc, char** argv)
                     std::fclose(fp);
                 }
             }
+            if (f == 65) {
+                int dw = 0, dh = 0;
+                glfwGetFramebufferSize(app.window(), &dw, &dh);
+                capture_front_buffer("caret-probe.bmp", dw, dh);
+            }
             if (f == 70)
                 glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
         }
