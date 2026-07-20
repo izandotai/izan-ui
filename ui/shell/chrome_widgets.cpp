@@ -1,5 +1,6 @@
 #include "ui/shell/chrome_widgets.hpp"
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/shell/constants.hpp"
 #include "ui/shell/theme.hpp"
 #include "ui/shell/ui_layout.hpp"
@@ -26,86 +27,27 @@ namespace {
             && lhs.Min.y < rhs.Max.y && lhs.Max.y > rhs.Min.y;
     }
 
-    void append_rect_minus_blocker(
-        std::vector<ImRect>& output, const ImRect& rect, const ImRect& blocker)
-    {
-        if (!rects_overlap(rect, blocker)) {
-            output.push_back(rect);
-            return;
-        }
-
-        const float ix0 = std::max(rect.Min.x, blocker.Min.x);
-        const float iy0 = std::max(rect.Min.y, blocker.Min.y);
-        const float ix1 = std::min(rect.Max.x, blocker.Max.x);
-        const float iy1 = std::min(rect.Max.y, blocker.Max.y);
-
-        if (rect.Min.y < iy0)
-            output.emplace_back(
-                ImVec2(rect.Min.x, rect.Min.y), ImVec2(rect.Max.x, iy0));
-        if (iy1 < rect.Max.y)
-            output.emplace_back(
-                ImVec2(rect.Min.x, iy1), ImVec2(rect.Max.x, rect.Max.y));
-        if (rect.Min.x < ix0)
-            output.emplace_back(ImVec2(rect.Min.x, iy0), ImVec2(ix0, iy1));
-        if (ix1 < rect.Max.x)
-            output.emplace_back(ImVec2(ix1, iy0), ImVec2(rect.Max.x, iy1));
-    }
-
-    void draw_shadow_rect_clipped(ImDrawList* draw_list, const ImRect& rect,
-        const std::vector<ImRect>& blockers, ImU32 color, float rounding,
-        ImDrawFlags flags)
-    {
-        std::vector<ImRect> segments { rect };
-        for (const ImRect& blocker : blockers) {
-            std::vector<ImRect> next_segments;
-            for (const ImRect& segment : segments)
-                append_rect_minus_blocker(next_segments, segment, blocker);
-            segments = std::move(next_segments);
-            if (segments.empty())
-                return;
-        }
-
-        for (const ImRect& segment : segments) {
-            if (segment.GetWidth() <= 0.0f || segment.GetHeight() <= 0.0f)
-                continue;
-            draw_list->AddRectFilled(
-                segment.Min, segment.Max, color, rounding, flags);
-        }
-    }
-
     void draw_popup_shadow_for_rect(ImDrawList* draw_list,
         const ChromeState& app, const ImRect& rect,
         const std::vector<ImRect>& blockers, bool modal)
     {
-        // Two depth profiles. Menus float just off the surface; modals
-        // hang in the air the way macOS alerts do — a wide, soft,
-        // slightly dropped umbra (roughly ~50px blur, ~30% black,
-        // settled a few pixels below the window).
-        constexpr std::array<float, 12> kMenuAlpha
-            = { 0.020f, 0.017f, 0.014f, 0.011f, 0.0085f, 0.0065f, 0.0050f,
-                  0.0038f, 0.0028f, 0.0020f, 0.0014f, 0.0010f };
-        constexpr std::array<float, 14> kModalAlpha
-            = { 0.032f, 0.028f, 0.024f, 0.020f, 0.016f, 0.013f, 0.010f, 0.008f,
-                  0.006f, 0.0045f, 0.0033f, 0.0024f, 0.0017f, 0.0011f };
-        const float* alpha = modal ? kModalAlpha.data() : kMenuAlpha.data();
-        const int layers
-            = modal ? int(kModalAlpha.size()) : int(kMenuAlpha.size());
-        const float spread_step = modal ? 3.4f : 1.75f;
-        const float spread_base = modal ? 3.0f : 2.0f;
-        const float drop = modal ? 4.0f : 0.0f;
-
-        const float base_rounding = ImGui::GetStyle().PopupRounding;
-        for (int index = layers - 1; index >= 0; --index) {
-            const float layer = static_cast<float>(index + 1);
-            const float spread = spread_base + layer * spread_step;
-            const ImU32 color = theme_popup_shadow_color(app, alpha[index]);
-            const float rounding = base_rounding + spread;
-
-            draw_shadow_rect_clipped(draw_list,
-                ImRect(ImVec2(rect.Min.x - spread, rect.Min.y - spread + drop),
-                    ImVec2(rect.Max.x + spread, rect.Max.y + spread + drop)),
-                blockers, color, rounding, 0);
-        }
+        // One analytic umbra (2026-07-20 dialog-corner verdict): the
+        // old 12-14 stacked polygon rings each brought their own arc
+        // and the corner wore all of them at once. A single gaussian
+        // SDF draw has no rings to disagree. Two depth profiles stay:
+        // menus float just off the surface; modals hang in the air
+        // with a wide, dropped umbra the way macOS alerts do.
+        (void)blockers; // popups painted above cover their own patch
+        render::SdfRect shadow;
+        const float drop = modal ? 4.0f : 1.0f;
+        shadow.min = ImVec2(rect.Min.x, rect.Min.y + drop);
+        shadow.max = ImVec2(rect.Max.x, rect.Max.y + drop);
+        const float r = ImGui::GetStyle().PopupRounding;
+        shadow.radius[0] = shadow.radius[1] = shadow.radius[2]
+            = shadow.radius[3] = r;
+        shadow.fill = theme_popup_shadow_color(app, modal ? 0.26f : 0.16f);
+        shadow.soft_px = modal ? 26.0f : 11.0f;
+        render::sdf_rect(draw_list, shadow);
     }
 
     void draw_snap_preview(const ChromeState& app, ImDrawList* draw_list,

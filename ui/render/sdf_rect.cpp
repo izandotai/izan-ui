@@ -1,8 +1,8 @@
 #include "ui/render/sdf_rect.hpp"
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -113,6 +113,7 @@ namespace {
           "uniform vec4 uFill;\n"
           "uniform vec4 uBorder;\n"
           "uniform float uBorderPx;\n"
+          "uniform float uSoft;\n"
           "float sd(vec2 p, vec2 b, float r){\n"
           "  vec2 q = abs(p) - b + r;\n"
           "  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;\n"
@@ -125,6 +126,12 @@ namespace {
           "  float r = p.y < 0.0 ? (p.x < 0.0 ? uRadii.x : uRadii.y)\n"
           "                      : (p.x < 0.0 ? uRadii.w : uRadii.z);\n"
           "  float d = sd(p, half_size, r);\n"
+          "  if (uSoft > 0.0) {\n"
+          "    float a = d <= 0.0 ? 1.0 : exp(-(d*d)/(2.0*uSoft*uSoft));\n"
+          "    if (uFill.a * a <= 0.003) discard;\n"
+          "    gl_FragColor = vec4(uFill.rgb, uFill.a * a);\n"
+          "    return;\n"
+          "  }\n"
           "  float aa = 0.65;\n"
           "  float outer = 1.0 - smoothstep(-aa, aa, d);\n"
           "  float inner = 1.0 - smoothstep(-aa, aa, d + uBorderPx);\n"
@@ -136,7 +143,7 @@ namespace {
     struct Program {
         GLu id = 0;
         GLi u_screen = -1, u_quad = -1, u_rect = -1, u_radii = -1;
-        GLi u_fill = -1, u_border = -1, u_border_px = -1;
+        GLi u_fill = -1, u_border = -1, u_border_px = -1, u_soft = -1;
         bool failed = false;
     };
 
@@ -181,6 +188,7 @@ namespace {
             v.u_fill = gl().GetUniformLocation(v.id, "uFill");
             v.u_border = gl().GetUniformLocation(v.id, "uBorder");
             v.u_border_px = gl().GetUniformLocation(v.id, "uBorderPx");
+            v.u_soft = gl().GetUniformLocation(v.id, "uSoft");
             return v;
         }();
         return p;
@@ -212,15 +220,18 @@ namespace {
 
         gl().UseProgram(prog.id);
         gl().Uniform2f(prog.u_screen, vp->Size.x, vp->Size.y);
-        // The quad covers the rect plus the AA fringe.
-        gl().Uniform4f(prog.u_quad, r.min.x - 2.0f, r.min.y - 2.0f,
-            r.max.x + 2.0f, r.max.y + 2.0f);
+        // The quad covers the rect plus the AA fringe — or the whole
+        // gaussian tail when the rect is a soft shadow.
+        const float fringe = r.soft_px > 0.0f ? r.soft_px * 3.0f : 2.0f;
+        gl().Uniform4f(prog.u_quad, r.min.x - fringe, r.min.y - fringe,
+            r.max.x + fringe, r.max.y + fringe);
         gl().Uniform4f(prog.u_rect, r.min.x, r.min.y, r.max.x, r.max.y);
         gl().Uniform4f(
             prog.u_radii, r.radius[0], r.radius[1], r.radius[2], r.radius[3]);
         set_color(prog.u_fill, r.fill);
         set_color(prog.u_border, r.border);
         gl().Uniform1f(prog.u_border_px, r.border_px);
+        gl().Uniform1f(prog.u_soft, r.soft_px);
         // Honor the clip the draw list carried for this command.
         gl().Scissor(GLi(cmd->ClipRect.x), GLi(vp->Size.y - cmd->ClipRect.w),
             GLi(cmd->ClipRect.z - cmd->ClipRect.x),
@@ -238,9 +249,21 @@ void sdf_rect(ImDrawList* draw, const SdfRect& rect)
     static const bool forced_off = std::getenv("IZAN_SDF_OFF") != nullptr;
     if (forced_off || program().failed) {
         // The polygon path is the honest fallback: one radius, the
-        // largest requested, and the classic stroked rim.
+        // largest requested, and the classic stroked rim. A soft
+        // shadow degrades to a single translucent slab.
         const float r = std::max(std::max(rect.radius[0], rect.radius[1]),
             std::max(rect.radius[2], rect.radius[3]));
+        if (rect.soft_px > 0.0f) {
+            ImU32 half = rect.fill;
+            half = (half & ~IM_COL32_A_MASK)
+                | ((((half >> IM_COL32_A_SHIFT) & 0xff) / 2)
+                    << IM_COL32_A_SHIFT);
+            draw->AddRectFilled(
+                ImVec2(rect.min.x - rect.soft_px, rect.min.y - rect.soft_px),
+                ImVec2(rect.max.x + rect.soft_px, rect.max.y + rect.soft_px),
+                half, r + rect.soft_px);
+            return;
+        }
         draw->AddRectFilled(rect.min, rect.max, rect.fill, r);
         if (rect.border_px > 0.0f)
             draw->AddRect(

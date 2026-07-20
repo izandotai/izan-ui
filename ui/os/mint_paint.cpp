@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/shell/fonts.hpp"
 #include "ui/widgets/design.hpp"
 
@@ -98,20 +99,19 @@ void control_icon(ImDrawList* draw, ImVec2 center, int control, bool restore,
 void window_shadow(
     ImDrawList* draw, ImVec2 min, ImVec2 max, float rounding, float scale)
 {
-    // The kit menu's depth profile: a dozen faint rings fading fast —
-    // small, blurred, light. A heavy halo reads as smear the moment
-    // the window moves.
-    static constexpr float kAlpha[12]
-        = { 0.020f, 0.017f, 0.014f, 0.011f, 0.0085f, 0.0065f, 0.0050f, 0.0038f,
-              0.0028f, 0.0020f, 0.0014f, 0.0010f };
+    // One analytic umbra (2026-07-20 shadow verdict): the ring stack
+    // fringed every corner with a dozen disagreeing arcs; a gaussian
+    // SDF draw is one smooth falloff. Small, light, dropped a touch.
     const float drop = 1.5f * scale;
-    for (int index = 11; index >= 0; --index) {
-        const float spread
-            = (2.0f + static_cast<float>(index + 1) * 1.75f) * scale;
-        draw->AddRectFilled({ min.x - spread, min.y - spread + drop },
-            { max.x + spread, max.y + spread + drop },
-            IM_COL32(0, 0, 0, static_cast<int>(kAlpha[index] * 255.0f + 0.5f)),
-            rounding + spread);
+    {
+        render::SdfRect shadow;
+        shadow.min = { min.x, min.y + drop };
+        shadow.max = { max.x, max.y + drop };
+        shadow.radius[0] = shadow.radius[1] = shadow.radius[2]
+            = shadow.radius[3] = rounding;
+        shadow.fill = IM_COL32(0, 0, 0, 40);
+        shadow.soft_px = 11.0f * scale;
+        render::sdf_rect(draw, shadow);
     }
 }
 
