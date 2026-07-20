@@ -66,16 +66,6 @@ void document_icon(ImDrawList* draw, ImVec2 center, float scale, ImU32 accent)
     }
 }
 
-void wifi_icon(ImDrawList* draw, ImVec2 center, float scale, ImU32 color)
-{
-    for (int ring = 0; ring < 3; ++ring) {
-        draw->PathArcTo(center, (4.0f + ring * 4.0f) * scale, 3.85f, 5.57f, 16);
-        draw->PathStroke(color, 0, 1.5f * scale);
-    }
-    draw->AddCircleFilled(
-        { center.x, center.y + 1.0f * scale }, 1.7f * scale, color);
-}
-
 void control_icon(ImDrawList* draw, ImVec2 center, int control, bool restore,
     ImU32 color, float scale)
 {

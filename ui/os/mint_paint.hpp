@@ -34,7 +34,6 @@ void mint_logo(ImDrawList* draw, ImVec2 center, float radius);
 void folder_icon(ImDrawList* draw, ImVec2 center, float scale,
     ImU32 color = IM_COL32(116, 184, 83, 255));
 void document_icon(ImDrawList* draw, ImVec2 center, float scale, ImU32 accent);
-void wifi_icon(ImDrawList* draw, ImVec2 center, float scale, ImU32 color);
 // control: 0 minimize, 1 maximize (restore variant when restore), 2 close.
 void control_icon(ImDrawList* draw, ImVec2 center, int control, bool restore,
     ImU32 color, float scale);

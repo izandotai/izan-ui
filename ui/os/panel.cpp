@@ -191,19 +191,42 @@ void Panel::frame(
         clock_font);
     const float tray_right = clock_x - 20.0f * s;
     const ImU32 tray_ink = IM_COL32(235, 237, 236, 255);
-    wifi_icon(draw, { tray_right - 96.0f * s, center_y + 4.0f * s }, 0.72f * s,
-        tray_ink);
-    const ImVec2 speaker { tray_right - 58.0f * s, center_y };
-    draw->AddTriangleFilled({ speaker.x - 8.0f * s, speaker.y },
-        { speaker.x - 2.0f * s, speaker.y - 6.0f * s },
-        { speaker.x - 2.0f * s, speaker.y + 6.0f * s }, tray_ink);
-    draw->AddRectFilled({ speaker.x - 11.0f * s, speaker.y - 3.0f * s },
-        { speaker.x - 7.0f * s, speaker.y + 3.0f * s }, tray_ink);
-    draw->PathArcTo(
-        { speaker.x - 2.0f * s, speaker.y }, 8.0f * s, -0.75f, 0.75f, 12);
-    draw->PathStroke(tray_ink, 0, 1.5f * s);
-    draw->AddCircle(
-        { tray_right - 22.0f * s, center_y }, 7.0f * s, tray_ink, 20, 1.5f * s);
+    // This is a wallet OS, not a desktop: the tray speaks device
+    // links, not host plumbing. USB trident = the transport; chip =
+    // the hardware wallet on the other end. Both are still mute
+    // furniture — live status wiring comes with the device layer.
+    {
+        const ImVec2 c { tray_right - 60.0f * s, center_y };
+        draw->AddLine({ c.x, c.y + 8.0f * s }, { c.x, c.y - 6.0f * s },
+            tray_ink, 1.5f * s);
+        draw->AddTriangleFilled({ c.x, c.y - 9.5f * s },
+            { c.x - 2.6f * s, c.y - 4.5f * s },
+            { c.x + 2.6f * s, c.y - 4.5f * s }, tray_ink);
+        draw->AddCircleFilled({ c.x, c.y + 8.0f * s }, 2.0f * s, tray_ink, 12);
+        draw->AddLine({ c.x, c.y + 4.0f * s },
+            { c.x - 5.5f * s, c.y - 1.0f * s }, tray_ink, 1.5f * s);
+        draw->AddRectFilled({ c.x - 7.3f * s, c.y - 4.6f * s },
+            { c.x - 3.7f * s, c.y - 1.0f * s }, tray_ink);
+        draw->AddLine({ c.x, c.y + 2.0f * s },
+            { c.x + 5.5f * s, c.y - 2.5f * s }, tray_ink, 1.5f * s);
+        draw->AddCircleFilled(
+            { c.x + 5.5f * s, c.y - 4.0f * s }, 1.9f * s, tray_ink, 12);
+    }
+    {
+        const ImVec2 c { tray_right - 24.0f * s, center_y };
+        draw->AddRect({ c.x - 5.5f * s, c.y - 4.5f * s },
+            { c.x + 5.5f * s, c.y + 4.5f * s }, tray_ink, 1.5f * s, 0,
+            1.5f * s);
+        draw->AddRectFilled({ c.x - 2.0f * s, c.y - 1.5f * s },
+            { c.x + 2.0f * s, c.y + 1.5f * s }, tray_ink);
+        for (int i = -1; i <= 1; ++i) {
+            const float y = c.y + static_cast<float>(i) * 3.0f * s;
+            draw->AddLine({ c.x - 8.0f * s, y }, { c.x - 5.5f * s, y },
+                tray_ink, 1.3f * s);
+            draw->AddLine({ c.x + 5.5f * s, y }, { c.x + 8.0f * s, y },
+                tray_ink, 1.3f * s);
+        }
+    }
 
     end_furniture_window();
 
