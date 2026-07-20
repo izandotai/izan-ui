@@ -110,13 +110,6 @@ void kit_dialog_open(const char* id)
 bool kit_dialog_begin(const char* id, bool* dismissed, bool escapable)
 {
     push_dialog_style();
-    // Never larger than the host window: in a shrunken window an
-    // unconstrained auto-resize dialog swallows the whole frame and
-    // overflows the edges; clamped, it scrolls instead.
-    const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
-    const float em = ImGui::GetFontSize();
-    ImGui::SetNextWindowSizeConstraints(
-        ImVec2(0.0f, 0.0f), ImVec2(work.x - em, work.y - em));
     if (g_dialog_appearing == id) {
         ImGui::SetNextWindowPos(ImVec2(-20000.0f, -20000.0f), ImGuiCond_Always);
         g_dialog_appearing.clear();
