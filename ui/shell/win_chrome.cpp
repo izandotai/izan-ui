@@ -111,10 +111,13 @@ namespace {
 
             if (g_title_bar_regions_valid
                 && point_in_win32_rect(point, g_title_bar_rect)) {
-                return (point_in_title_bar_interactive_region(point)
-                           || point_in_fallback_title_controls(point, rect))
-                    ? HTCLIENT
-                    : HTCAPTION;
+                // Registered regions are the whole truth here. The
+                // 390px fallback below is for hosts that never
+                // register; letting it vote too carved a dead,
+                // undraggable stripe left of the controls (2026-07-20
+                // os-demo report).
+                return point_in_title_bar_interactive_region(point) ? HTCLIENT
+                                                                    : HTCAPTION;
             }
             if (point_in_fallback_title_controls(point, rect))
                 return HTCLIENT;
@@ -208,13 +211,12 @@ void set_window_icon_resource(GLFWwindow* window, int resource_id)
     HINSTANCE self = GetModuleHandleW(nullptr);
     // Two loads on purpose: the small slot rendered from the 256px
     // entry comes out muddy; asking for 16px picks the crisp one.
-    if (HANDLE big = LoadImageW(self, MAKEINTRESOURCEW(resource_id),
-            IMAGE_ICON, 0, 0, LR_DEFAULTSIZE))
-        SendMessageW(
-            hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
-    if (HANDLE small = LoadImageW(self, MAKEINTRESOURCEW(resource_id),
-            IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
-            GetSystemMetrics(SM_CYSMICON), 0))
+    if (HANDLE big = LoadImageW(self, MAKEINTRESOURCEW(resource_id), IMAGE_ICON,
+            0, 0, LR_DEFAULTSIZE))
+        SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    if (HANDLE small
+        = LoadImageW(self, MAKEINTRESOURCEW(resource_id), IMAGE_ICON,
+            GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0))
         SendMessageW(
             hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
 }

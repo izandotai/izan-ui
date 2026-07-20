@@ -339,6 +339,17 @@ void draw_kit_gallery()
     kit_vspace();
 
     kit_heading("对话框 dialog");
+    // IZAN_DIALOG_PROBE=1: the dialog opens itself once, so an
+    // IZAN_SHOT run can photograph the modal shell headlessly.
+    {
+        static const bool dialog_probe
+            = std::getenv("IZAN_DIALOG_PROBE") != nullptr;
+        static bool probe_fired = false;
+        if (dialog_probe && !probe_fired && ImGui::GetFrameCount() >= 2) {
+            kit_dialog_open("##demo-dialog");
+            probe_fired = true;
+        }
+    }
     if (kit_primary_button("打开对话框"))
         kit_dialog_open("##demo-dialog");
     if (kit_dialog_begin("##demo-dialog")) {
@@ -492,6 +503,34 @@ int main()
             glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
 
         app.end_frame(izan::ui::theme_clear_color(chrome));
+
+        // IZAN_SHOT=<file.bmp>: a few frames, one front-buffer grab,
+        // exit — the headless acceptance eye for popup/dialog work.
+        static const char* shot = std::getenv("IZAN_SHOT");
+        if (shot && *shot && ImGui::GetFrameCount() >= 6) {
+            int w = 0, h = 0;
+            glfwGetFramebufferSize(app.window(), &w, &h);
+            const int row = (w * 3 + 3) & ~3;
+            std::vector<unsigned char> px(std::size_t(row) * h);
+            glPixelStorei(GL_PACK_ALIGNMENT, 4);
+            glReadBuffer(GL_FRONT);
+            glReadPixels(
+                0, 0, w, h, 0x80E0 /* GL_BGR */, GL_UNSIGNED_BYTE, px.data());
+            unsigned char hdr[54] = { 'B', 'M' };
+            const std::uint32_t size = 54 + std::uint32_t(px.size());
+            std::memcpy(hdr + 2, &size, 4);
+            hdr[10] = 54;
+            hdr[14] = 40;
+            std::memcpy(hdr + 18, &w, 4);
+            std::memcpy(hdr + 22, &h, 4);
+            hdr[26] = 1;
+            hdr[28] = 24;
+            std::ofstream f(shot, std::ios::binary);
+            f.write(reinterpret_cast<const char*>(hdr), sizeof hdr);
+            f.write(reinterpret_cast<const char*>(px.data()),
+                std::streamsize(px.size()));
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
+        }
     });
     app.run();
     merge(keeper.final_state());

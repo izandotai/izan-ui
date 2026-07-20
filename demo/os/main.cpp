@@ -28,13 +28,13 @@
 #include <vector>
 
 #include "ui/render/image_load.hpp"
-#include "ui/render/live_backdrop.hpp"
 #include "ui/render/svg_raster.hpp"
 
 #include "ui/os/mint_paint.hpp"
 #include "ui/os/shell.hpp"
 #include "ui/shell/app.hpp"
 #include "ui/shell/chrome_state.hpp"
+#include "ui/shell/chrome_widgets.hpp"
 #include "ui/shell/theme.hpp"
 #include "ui/shell/ui_layout.hpp"
 #include "ui/shell/win_chrome.hpp"
@@ -474,23 +474,6 @@ void draw_mint_host_frame(GLFWwindow* window)
 
 typedef unsigned int GLuint_t;
 
-// A 1x1 transparent texture: handed to the shell in live mode so its
-// painted-wallpaper branch stands down while the shader owns the
-// background layer beneath.
-ImTextureID blank_tex()
-{
-    static GLuint_t tex = [] {
-        GLuint_t t = 0;
-        const unsigned char px[4] = { 0, 0, 0, 0 };
-        glGenTextures(1, &t);
-        glBindTexture(GL_TEXTURE_2D, t);
-        glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, 1, 1, 0, GL_RGBA,
-            GL_UNSIGNED_BYTE, px);
-        return t;
-    }();
-    return static_cast<ImTextureID>(tex);
-}
-
 class SvgWallpaper {
 public:
     // Baked ONCE at the primary monitor's full size; every later call
@@ -808,26 +791,13 @@ int main(int argc, char** argv)
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float bar_h = kFrameHeight * mint_scale();
         const ImVec2 desk_size(vp->Size.x, vp->Size.y - bar_h);
-        // Wallpaper roads, in order of preference: IZAN_OS_WALLPAPER=
-        // live → the aurora shader on the background layer (a blank
-        // 1px texture keeps the shell's own painter quiet); a file
-        // (svg/jpg/png) → baked texture; nothing renderable → the
-        // theme's painted backdrop.
-        static const bool live_mode = [] {
-            const char* pick = std::getenv("IZAN_OS_WALLPAPER");
-            return pick && std::string_view(pick) == "live";
-        }();
+        // Wallpaper roads: an IZAN_OS_WALLPAPER file (svg/jpg/png) →
+        // baked texture; nothing renderable → the painted backdrop.
+        // (An animated shader wallpaper was auditioned 2026-07-20 and
+        // cut the same day: no advantage over the still art.)
         const ImVec2 desk_pos(vp->Pos.x, vp->Pos.y + bar_h);
-        bool live_on = false;
-        if (live_mode)
-            live_on = izan::render::live_backdrop(
-                ImGui::GetBackgroundDrawList(), desk_pos,
-                { desk_pos.x + desk_size.x, desk_pos.y + desk_size.y },
-                static_cast<float>(ImGui::GetTime()));
         ImVec2 wp_uv0, wp_uv1;
-        if (live_on)
-            shell.set_wallpaper(blank_tex(), { 0, 0 }, { 1, 1 });
-        else if (ImTextureID svg_tex
+        if (ImTextureID svg_tex
             = svg_wallpaper.texture(desk_size, wp_uv0, wp_uv1))
             shell.set_wallpaper(svg_tex, wp_uv0, wp_uv1);
         else
@@ -835,6 +805,28 @@ int main(int argc, char** argv)
                 os::mint_theme(), desk_size, ImGui::GetFontSize()));
         shell.frame(desk_pos, desk_size);
         draw_mint_host_frame(app.window());
+        // IZAN_DIALOG_PROBE=1: a kit dialog opened straight away, so a
+        // --screenshot run can put the modal shell (panel, border,
+        // shadow, corner quality) under the magnifier without a hand
+        // on the mouse.
+        static const bool dialog_probe
+            = std::getenv("IZAN_DIALOG_PROBE") != nullptr;
+        if (dialog_probe) {
+            static bool probe_opened = false;
+            if (!probe_opened && ImGui::GetFrameCount() >= 2) {
+                ui::kit_dialog_open("##probe-dialog");
+                probe_opened = true;
+            }
+            if (ui::kit_dialog_begin("##probe-dialog")) {
+                static char pass[64] = {};
+                ui::kit_dialog_field_width();
+                ui::kit_text_field(
+                    "##probe-pass", "Confirm passphrase", pass, sizeof pass);
+                ui::kit_dialog_buttons("Cancel", "Create wallet");
+                ui::kit_dialog_end();
+            }
+        }
+        ui::draw_menu_popup_shadows(chrome);
         // Window in hand → the cursor rides in the frame, pixel-locked
         // to what it drags; hands off → hardware cursor, zero latency.
         ui::draw_inframe_cursor(shell.wm().interacting());
