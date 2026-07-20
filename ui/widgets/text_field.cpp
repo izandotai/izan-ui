@@ -97,6 +97,9 @@ void kit_field_style_push()
     const float em = ImGui::GetFontSize();
     ImGui::PushStyleColor(ImGuiCol_FrameBg, well_floor());
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+    // Keyboard nav paints its own cursor ring just outside the frame;
+    // the well already speaks focus with the accent halo — one voice.
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     ImGui::PushStyleVar(
         ImGuiStyleVar_FrameRounding, em * design().field_radius);
@@ -107,7 +110,7 @@ void kit_field_style_push()
 void kit_field_style_pop()
 {
     ImGui::PopStyleVar(3);
-    ImGui::PopStyleColor(2);
+    ImGui::PopStyleColor(3);
 }
 
 // Finish the well over the last item's rectangle.
