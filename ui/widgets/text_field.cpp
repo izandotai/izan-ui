@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/widgets/design.hpp"
 
 namespace izan::ui {
@@ -22,11 +23,27 @@ namespace {
         return kit_blend(bg, ImVec4(1, 1, 1, 1), 0.55f);
     }
 
+    // One analytic ring: sdf_rect with border only, radius per inset.
+    void sdf_ring(ImDrawList* draw, ImVec2 min, ImVec2 max, float r,
+        const ImVec4& color, float px)
+    {
+        render::SdfRect ring;
+        ring.min = min;
+        ring.max = max;
+        ring.radius[0] = ring.radius[1] = ring.radius[2] = ring.radius[3]
+            = r > 0.0f ? r : 0.0f;
+        ring.border = ImGui::GetColorU32(color);
+        ring.border_px = px;
+        render::sdf_rect(draw, ring);
+    }
+
     // The recessed twin of the button's four-stroke gloss, mirrored
     // for the same overhead light: the top lip shades the floor, the
     // bottom of the well catches a little back-light, the outer lower
     // lip takes the light that clears the rim, and the rim itself runs
-    // dark-on-top. Focus wraps the well in the accent halo.
+    // dark-on-top. Focus wraps the well in the accent halo. Every
+    // stroke is analytic (sdf_rect), which honors the clip rect — the
+    // partial-height lighting keeps working.
     void paint_well(const ImVec2& min, const ImVec2& max, bool focused)
     {
         ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -46,45 +63,54 @@ namespace {
         clipped(min.y, min.y + h * 0.45f, [&] {
             for (int i = 1; i <= 3; ++i) {
                 const float a = (dark ? 0.17f : 0.09f) * float(4 - i) / 3.0f;
-                draw->AddRect(ImVec2(min.x + float(i), min.y + float(i)),
-                    ImVec2(max.x - float(i), max.y - float(i)),
-                    ImGui::GetColorU32(ImVec4(0, 0, 0, a)),
-                    r > float(i) ? r - float(i) : 0.0f, 0, 1.0f);
+                sdf_ring(draw, ImVec2(min.x + float(i), min.y + float(i)),
+                    ImVec2(max.x - float(i), max.y - float(i)), r - float(i),
+                    ImVec4(0, 0, 0, a), 1.0f);
             }
         });
         // A whisper of back-light on the well's inner floor edge.
         clipped(max.y - h * 0.3f, max.y, [&] {
-            draw->AddRect(ImVec2(min.x + 1, min.y + 1),
-                ImVec2(max.x - 1, max.y - 1),
-                ImGui::GetColorU32(ImVec4(1, 1, 1, dark ? 0.045f : 0.35f)),
-                r - 1.0f, 0, 1.0f);
+            sdf_ring(draw, ImVec2(min.x + 1, min.y + 1),
+                ImVec2(max.x - 1, max.y - 1), r - 1.0f,
+                ImVec4(1, 1, 1, dark ? 0.045f : 0.35f), 1.0f);
         });
         // The light that clears the rim lands on the outer lower lip.
         clipped(max.y - h * 0.25f, max.y + 2.5f, [&] {
-            draw->AddRect(ImVec2(min.x - 0.5f, min.y - 0.5f),
-                ImVec2(max.x + 0.5f, max.y + 0.5f),
-                ImGui::GetColorU32(ImVec4(1, 1, 1, dark ? 0.07f : 0.55f)),
-                r + 0.5f, 0, 1.5f);
+            sdf_ring(draw, ImVec2(min.x - 0.5f, min.y - 0.5f),
+                ImVec2(max.x + 0.5f, max.y + 0.5f), r + 0.5f,
+                ImVec4(1, 1, 1, dark ? 0.07f : 0.55f), 1.5f);
         });
-        // The rim: one solid stroke, the same color all the way
-        // round. A 1px hairline breaks up on the anti-aliased corner
-        // arcs; two pixels keep the ring closed.
-        draw->AddRect(min, max,
-            ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Separator)), r,
-            0, 2.0f);
+        // The rim: one solid 2px stroke — the component border
+        // standard, same gauge as the window's.
+        sdf_ring(draw, min, max, r,
+            ImGui::GetStyleColorVec4(ImGuiCol_Separator), 2.0f);
 
         if (focused) {
             ImVec4 halo = kit_accent();
             for (int i = 1; i <= 3; ++i) {
                 halo.w = 0.30f / float(i);
-                draw->AddRect(ImVec2(min.x - float(i), min.y - float(i)),
-                    ImVec2(max.x + float(i), max.y + float(i)),
-                    ImGui::GetColorU32(halo), r + float(i), 0, 1.5f);
+                sdf_ring(draw, ImVec2(min.x - float(i), min.y - float(i)),
+                    ImVec2(max.x + float(i), max.y + float(i)), r + float(i),
+                    halo, 1.5f);
             }
             ImVec4 ring = kit_accent();
             ring.w = 0.85f;
-            draw->AddRect(min, max, ImGui::GetColorU32(ring), r, 0, 2.0f);
+            sdf_ring(draw, min, max, r, ring, 2.0f);
         }
+    }
+
+    // The floor, laid analytically before the (transparent) imgui item
+    // — the library's own polygon-arc frame never shows again.
+    void paint_floor(const ImVec2& pos, const ImVec2& size)
+    {
+        render::SdfRect floor;
+        floor.min = pos;
+        floor.max = ImVec2(pos.x + size.x, pos.y + size.y);
+        const float r = ImGui::GetFontSize() * design().field_radius;
+        floor.radius[0] = floor.radius[1] = floor.radius[2] = floor.radius[3]
+            = r;
+        floor.fill = ImGui::GetColorU32(well_floor());
+        render::sdf_rect(ImGui::GetWindowDrawList(), floor);
     }
 
 }
@@ -95,7 +121,9 @@ namespace {
 void kit_field_style_push()
 {
     const float em = ImGui::GetFontSize();
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, well_floor());
+    // Transparent frame: the floor is laid analytically beforehand,
+    // imgui's polygon-arc fill stays out of the picture.
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
     // Keyboard nav paints its own cursor ring just outside the frame;
     // the well already speaks focus with the accent halo — one voice.
@@ -121,10 +149,8 @@ void kit_field_well_finish(bool focused)
 
 void kit_field_frame(const ImVec2& pos, const ImVec2& size)
 {
-    ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImVec2 max(pos.x + size.x, pos.y + size.y);
-    const float r = ImGui::GetFontSize() * design().field_radius;
-    draw->AddRectFilled(pos, max, ImGui::GetColorU32(well_floor()), r);
+    paint_floor(pos, size);
     paint_well(pos, max, false);
 }
 
@@ -132,6 +158,10 @@ bool kit_text_field(
     const char* id, const char* hint, char* buf, std::size_t size)
 {
     kit_field_style_push();
+    // Frame metrics only settle after the style push (padding rides
+    // in it); the floor must measure the same box the item will.
+    paint_floor(ImGui::GetCursorScreenPos(),
+        ImVec2(ImGui::CalcItemWidth(), ImGui::GetFrameHeight()));
     const bool submitted = ImGui::InputTextWithHint(
         id, hint, buf, size, ImGuiInputTextFlags_EnterReturnsTrue);
     kit_field_style_pop();
@@ -146,6 +176,8 @@ bool secret_field(const char* label, std::array<char, 256>& buf,
         | ImGuiInputTextFlags_AutoSelectAll
         | ImGuiInputTextFlags_EnterReturnsTrue;
     kit_field_style_push();
+    paint_floor(ImGui::GetCursorScreenPos(),
+        ImVec2(ImGui::CalcItemWidth(), ImGui::GetFrameHeight()));
     const bool submitted = hint
         ? ImGui::InputTextWithHint(label, hint, buf.data(), buf.size(), kFlags)
         : ImGui::InputText(label, buf.data(), buf.size(), kFlags);
@@ -164,8 +196,11 @@ bool kit_paste_box(const char* id, const char* hint, char* buf,
     ImGui::PushStyleVar(
         ImGuiStyleVar_FramePadding, ImVec2(em * 0.55f, em * 0.45f));
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const bool changed = ImGui::InputTextMultiline(id, buf, size,
-        ImVec2(-1.0f, ImGui::GetTextLineHeight() * rows + em * 0.9f));
+    const ImVec2 box(ImGui::GetContentRegionAvail().x,
+        ImGui::GetTextLineHeight() * rows + em * 0.9f);
+    paint_floor(pos, box);
+    const bool changed
+        = ImGui::InputTextMultiline(id, buf, size, ImVec2(-1.0f, box.y));
     const bool active = ImGui::IsItemActive();
     ImGui::PopStyleVar();
     kit_field_style_pop();

@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/widgets/design.hpp"
 
 namespace izan::ui {
@@ -37,8 +38,15 @@ bool kit_toggle(const char* id, bool* value)
     ImVec4 on = kit_accent();
     on.w = 1.0f;
     const ImU32 track = ImGui::GetColorU32(kit_blend(off, on, t));
-    draw->AddRectFilled(
-        pos, ImVec2(pos.x + width, pos.y + height), track, height * 0.5f);
+    {
+        render::SdfRect capsule;
+        capsule.min = pos;
+        capsule.max = ImVec2(pos.x + width, pos.y + height);
+        capsule.radius[0] = capsule.radius[1] = capsule.radius[2]
+            = capsule.radius[3] = height * 0.5f;
+        capsule.fill = track;
+        render::sdf_rect(draw, capsule);
+    }
     const float pad = height * 0.12f;
     const float radius = height * 0.5f - pad;
     const float x = pos.x + height * 0.5f + t * (width - height);

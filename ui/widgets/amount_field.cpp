@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/widgets/avatar.hpp"
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/text_field.hpp"
@@ -153,9 +154,14 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
 
     const ImVec2 fmax(pos.x + w, pos.y + h);
     if (ImGui::GetTime() - st.rejected_at < 0.8) {
-        ImGui::GetWindowDrawList()->AddRect(pos, fmax,
-            ImGui::GetColorU32(kit_danger()), ImGui::GetStyle().FrameRounding,
-            0, 2.0f);
+        render::SdfRect flash;
+        flash.min = pos;
+        flash.max = fmax;
+        flash.radius[0] = flash.radius[1] = flash.radius[2] = flash.radius[3]
+            = ImGui::GetStyle().FrameRounding;
+        flash.border = ImGui::GetColorU32(kit_danger());
+        flash.border_px = 2.0f;
+        render::sdf_rect(ImGui::GetWindowDrawList(), flash);
     }
 
     if (badge && *badge) {
@@ -180,16 +186,30 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
         const ImVec2 bmax = ImGui::GetItemRectMax();
         const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
         const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-        draw->AddRectFilled(bmin, bmax,
-            ImGui::GetColorU32(kit_blend(bg, text, hovered ? 0.16f : 0.09f)),
-            bh * 0.5f);
+        {
+            render::SdfRect pill;
+            pill.min = bmin;
+            pill.max = bmax;
+            pill.radius[0] = pill.radius[1] = pill.radius[2] = pill.radius[3]
+                = bh * 0.5f;
+            pill.fill = ImGui::GetColorU32(
+                kit_blend(bg, text, hovered ? 0.16f : 0.09f));
+            render::sdf_rect(draw, pill);
+        }
         // The asset's minted color rides inside the capsule — the
         // chain name stays in the menu; color plus symbol is enough
         // identity for a badge.
         const ImVec2 sp(kit_snap(bmin.x + pad),
             kit_snap((bmin.y + bmax.y - swatch) * 0.5f));
-        draw->AddRectFilled(sp, ImVec2(sp.x + swatch, sp.y + swatch),
-            ImGui::GetColorU32(kit_identity_color(badge)), swatch * 0.24f);
+        {
+            render::SdfRect chip;
+            chip.min = sp;
+            chip.max = ImVec2(sp.x + swatch, sp.y + swatch);
+            chip.radius[0] = chip.radius[1] = chip.radius[2] = chip.radius[3]
+                = swatch * 0.24f;
+            chip.fill = ImGui::GetColorU32(kit_identity_color(badge));
+            render::sdf_rect(draw, chip);
+        }
         draw->AddText(ImVec2(kit_snap(sp.x + swatch + em * 0.35f),
                           kit_snap((bmin.y + bmax.y - em) * 0.5f)),
             ImGui::GetColorU32(ImGuiCol_Text), badge);

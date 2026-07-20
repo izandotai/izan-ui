@@ -95,17 +95,11 @@ std::filesystem::path executable_dir()
 
 namespace {
     FontOptions g_active_font {};
-    ImFont* g_icon_font = nullptr;
 }
 
 const FontOptions& active_font()
 {
     return g_active_font;
-}
-
-ImFont* icon_font()
-{
-    return g_icon_font;
 }
 
 void load_font(ImGuiIO& io, const FontOptions& options)
@@ -234,28 +228,6 @@ void load_font(ImGuiIO& io, const FontOptions& options)
                 kSymbolFont, options.size, &symbol_config, nullptr);
         }
 #endif
-        // The icon face stands apart from the waterfall above: a
-        // standalone font the caller pushes explicitly. Keeping it out
-        // of the text fallback chain is deliberate — that chain's
-        // Noto audition failed once (invisible-glyph billing) and the
-        // verdict stands; a private face has no such exposure. Glyphs
-        // bake lazily, so carrying the full emoji set costs only what
-        // is actually drawn.
-        g_icon_font = nullptr;
-        if (options.icon_path != nullptr && *options.icon_path != '\0') {
-            const std::filesystem::path icon = options.icon_path;
-            const std::filesystem::path icon_abs = icon.is_absolute()
-                ? icon
-                : path.parent_path().parent_path().parent_path() / icon;
-            if (std::filesystem::exists(icon_abs)) {
-                ImFontConfig icon_config;
-                icon_config.PixelSnapH = false;
-                icon_config.RasterizerDensity = density;
-                g_icon_font
-                    = io.Fonts->AddFontFromFileTTF(icon_abs.string().c_str(),
-                        options.size, &icon_config, nullptr);
-            }
-        }
         return;
     }
 

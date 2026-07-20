@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "ui/render/sdf_rect.hpp"
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/kit.hpp"
 
@@ -33,8 +34,14 @@ namespace {
         const float wash = ImGui::GetFontSize() * dl.wash_height;
         const ImU32 lit = IM_COL32(255, 255, 255, dl.wash_alpha);
         const ImU32 gone = IM_COL32(255, 255, 255, 0);
-        draw->AddRectFilled(
-            min, ImVec2(max.x, min.y + r), lit, r, ImDrawFlags_RoundCornersTop);
+        {
+            render::SdfRect wash;
+            wash.min = min;
+            wash.max = ImVec2(max.x, min.y + r);
+            wash.radius[0] = wash.radius[1] = r; // top corners only
+            wash.fill = lit;
+            render::sdf_rect(draw, wash);
+        }
         draw->AddRectFilledMultiColor(ImVec2(min.x, min.y + r),
             ImVec2(max.x, min.y + wash), lit, lit, gone, gone);
     }

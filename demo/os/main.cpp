@@ -324,77 +324,6 @@ public:
     bool probe_active = false;
 };
 
-// ---- the mono icon proof: Noto Emoji through the icon font slot,
-// four sizes by four tints, light and dark ground side by side ----
-
-class IconsApp final : public os::App {
-public:
-    const char* id() const override
-    {
-        return "icons";
-    }
-
-    const char* name() const override
-    {
-        return "Mono Icons";
-    }
-
-    const char* mark() const override
-    {
-        return "🖤";
-    }
-
-    ImVec2 initial_size_em() const override
-    {
-        return { 40.0f, 26.0f };
-    }
-
-    void draw() override
-    {
-        const float s = mint_scale();
-        const ImVec2 min = ImGui::GetWindowPos();
-        const ImVec2 wsize = ImGui::GetWindowSize();
-        ImDrawList* draw = ImGui::GetWindowDrawList();
-        ImFont* icons = ui::icon_font();
-        ImGui::SetCursorScreenPos({ min.x + 14.0f * s, min.y + 12.0f * s });
-        if (icons == nullptr) {
-            ImGui::TextDisabled("icon font missing (assets/fonts)");
-            return;
-        }
-        // Bare codepoints, no FE0F: the icon face stands alone, no
-        // invisibles source rides in front of it.
-        static constexpr std::array<const char*, 10> kGlyphs
-            = { "⚙", "🔒", "🔌", "📁", "📄", "🗑", "🔍", "🏠", "⚠", "⭐" };
-        const ImU32 tints[] = {
-            IM_COL32(47, 51, 48, 255),   // ink
-            IM_COL32(90, 145, 60, 255),  // mint
-            IM_COL32(204, 66, 66, 255),  // warning
-            IM_COL32(240, 241, 240, 255) // paper (for the dark slab)
-        };
-        const float sizes[] = { 16.0f, 22.0f, 30.0f, 44.0f };
-        // The last tint row sits on ink to prove light-on-dark.
-        const float row0 = min.y + 40.0f * s;
-        const float row_h = 52.0f * s;
-        const ImVec2 slab_min { min.x + 8.0f * s, row0 + 3 * row_h - 8.0f * s };
-        const ImVec2 slab_max { min.x + wsize.x - 8.0f * s,
-            row0 + 4 * row_h + 4.0f * s };
-        draw->AddRectFilled(
-            slab_min, slab_max, IM_COL32(38, 41, 43, 255), 6.0f * s);
-        ImGui::TextDisabled("Noto Emoji mono · icon_font() · 染色即文本色");
-        // Rows 0-2: sizes small→large, each in its tint on the glass;
-        // row 3: paper tint on the ink slab, proving light-on-dark.
-        for (int row = 0; row < 4; ++row) {
-            float x = min.x + 16.0f * s;
-            const float y = row0 + row * row_h;
-            const float px = sizes[row] * s;
-            for (const char* g : kGlyphs) {
-                draw->AddText(icons, px, { x, y }, tints[row], g);
-                x += px + 14.0f * s;
-            }
-        }
-    }
-};
-
 class GalleryApp final : public os::App {
 public:
     const char* id() const override
@@ -545,54 +474,65 @@ typedef unsigned int GLuint_t;
 
 class SvgWallpaper {
 public:
-    // 0 while unavailable (no file / parse failure / painted mode).
-    ImTextureID texture(ImVec2 size)
+    // Baked ONCE at the primary monitor's full size; every later call
+    // is pure UV math — a centered cover-crop of the bake for the
+    // current desk. Resize, maximize, restore: no rebake, no stretch
+    // lag, the crop just breathes. 0 while unavailable (no file /
+    // parse failure / painted mode by request).
+    ImTextureID texture(ImVec2 size, ImVec2& uv0, ImVec2& uv1)
     {
-        const int w = static_cast<int>(size.x);
-        const int h = static_cast<int>(size.y);
-        if (broken_ || w <= 0 || h <= 0)
+        if (broken_ || size.x <= 0.0f || size.y <= 0.0f)
             return 0;
-        if (tex_ != 0 && w == w_ && h == h_)
-            return static_cast<ImTextureID>(tex_);
-        // A full-desk CPU raster costs tens of ms — never per resize
-        // tick. While the size is still moving the old bake stretches
-        // (the shell blits to the current rect regardless); the crisp
-        // rebake waits for the size to settle.
-        const double now = ImGui::GetTime();
-        if (w != pend_w_ || h != pend_h_) {
-            pend_w_ = w;
-            pend_h_ = h;
-            pend_since_ = now;
+        if (tex_ == 0)
+            bake();
+        if (tex_ == 0)
+            return 0;
+        const float want = size.x / size.y;
+        const float have = static_cast<float>(w_) / static_cast<float>(h_);
+        float du = 1.0f, dv = 1.0f;
+        if (want >= have)
+            dv = have / want; // wider desk: crop top and bottom
+        else
+            du = want / have; // taller desk: crop left and right
+        uv0 = { (1.0f - du) * 0.5f, (1.0f - dv) * 0.5f };
+        uv1 = { (1.0f + du) * 0.5f, (1.0f + dv) * 0.5f };
+        return static_cast<ImTextureID>(tex_);
+    }
+
+private:
+    void bake()
+    {
+        if (broken_)
+            return;
+        const char* pick = std::getenv("IZAN_OS_WALLPAPER");
+        if (pick && std::string_view(pick) == "paint") {
+            broken_ = true; // painted mode by request
+            return;
         }
-        if (tex_ != 0 && now - pend_since_ < 0.25)
-            return static_cast<ImTextureID>(tex_);
-        if (svg_.empty()) {
-            const char* pick = std::getenv("IZAN_OS_WALLPAPER");
-            if (pick && std::string_view(pick) == "paint") {
-                broken_ = true; // painted mode by request
-                return 0;
-            }
-            const std::filesystem::path path = pick && *pick
-                ? std::filesystem::path(pick)
-                : ui::executable_dir() / "assets" / "wallpaper"
-                    / "mint-waves.svg";
-            std::ifstream in(path, std::ios::binary);
-            if (!in) {
-                broken_ = true;
-                return 0;
-            }
-            std::stringstream text;
-            text << in.rdbuf();
-            svg_ = text.str();
+        const std::filesystem::path path = pick && *pick
+            ? std::filesystem::path(pick)
+            : ui::executable_dir() / "assets" / "wallpaper" / "mint-waves.svg";
+        std::ifstream in(path, std::ios::binary);
+        if (!in) {
+            broken_ = true;
+            return;
+        }
+        std::stringstream text;
+        text << in.rdbuf();
+        const std::string svg = text.str();
+        int w = 1920, h = 1200;
+        if (const GLFWvidmode* mode
+            = glfwGetVideoMode(glfwGetPrimaryMonitor())) {
+            w = mode->width;
+            h = mode->height;
         }
         const izan::render::SvgBitmap art
-            = izan::render::raster_svg_cover(svg_.c_str(), w, h);
+            = izan::render::raster_svg_cover(svg.c_str(), w, h);
         if (art.empty()) {
             broken_ = true;
-            return 0;
+            return;
         }
-        if (tex_ == 0)
-            glGenTextures(1, &tex_);
+        glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, w, h, 0, GL_RGBA,
             GL_UNSIGNED_BYTE, art.rgba.data());
@@ -600,17 +540,11 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         w_ = w;
         h_ = h;
-        return static_cast<ImTextureID>(tex_);
     }
 
-private:
-    std::string svg_;
     GLuint_t tex_ = 0;
     int w_ = 0;
     int h_ = 0;
-    int pend_w_ = 0;
-    int pend_h_ = 0;
-    double pend_since_ = 0.0;
     bool broken_ = false;
 };
 
@@ -813,12 +747,10 @@ int main(int argc, char** argv)
     FilesApp files;
     NotesApp notes;
     GalleryApp gallery;
-    IconsApp icons;
     os::Shell shell;
     shell.attach(&files);
     shell.attach(&notes);
     shell.attach(&gallery);
-    shell.attach(&icons);
     // IZAN_CARET_PROBE=1: open the notes window alone, inject a
     // synthetic click into its input through imgui's event queue (no
     // OS-level input, which this session cannot fake reliably), then
@@ -832,8 +764,6 @@ int main(int argc, char** argv)
         first = &notes;
     else if (first_id && std::string_view(first_id) == "gallery")
         first = &gallery;
-    else if (first_id && std::string_view(first_id) == "icons")
-        first = &icons;
     shell.wm().launch(first);
     WallpaperCache wallpaper;
     SvgWallpaper svg_wallpaper;
@@ -852,8 +782,10 @@ int main(int argc, char** argv)
         // fallback when no file renders. Uploaded textures are
         // top-down, so the UVs go straight (the FBO bake is
         // bottom-up and keeps the flipped default).
-        if (ImTextureID svg_tex = svg_wallpaper.texture(desk_size))
-            shell.set_wallpaper(svg_tex, { 0.0f, 0.0f }, { 1.0f, 1.0f });
+        ImVec2 wp_uv0, wp_uv1;
+        if (ImTextureID svg_tex
+            = svg_wallpaper.texture(desk_size, wp_uv0, wp_uv1))
+            shell.set_wallpaper(svg_tex, wp_uv0, wp_uv1);
         else
             shell.set_wallpaper(wallpaper.texture(
                 os::mint_theme(), desk_size, ImGui::GetFontSize()));
