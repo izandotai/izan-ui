@@ -21,6 +21,8 @@ inline constexpr const char* kDefaultFontRelativePath
     = "assets/fonts/LXGWWenKaiGBLite-Regular.ttf";
 inline constexpr const char* kDefaultFontFaceName = "LXGW WenKai GB Lite";
 inline constexpr const char* kEmojiFontPath = "C:/Windows/Fonts/seguiemj.ttf";
+inline constexpr const char* kIconFontRelativePath
+    = "assets/fonts/NotoEmoji-VF.ttf";
 
 // The typeface is the host's voice, not the shell's: every path and
 // size here is the host's to override. The defaults reproduce the
@@ -42,6 +44,11 @@ struct FontOptions {
     // finely the atlas rasterizes. <= 0 means "read the window's
     // content scale", which keeps text crisp on high-DPI monitors.
     float rasterizer_density = 0.0f;
+    // Monochrome icon face (Noto Emoji, OFL — license ships beside
+    // it). A standalone font, never merged into the text waterfall:
+    // icons are drawn explicitly via icon_font(), tinted by whatever
+    // color the caller draws with. nullptr skips loading.
+    const char* icon_path = kIconFontRelativePath;
 };
 
 std::filesystem::path executable_dir();
@@ -55,5 +62,9 @@ void load_default_font(ImGuiIO& io);
 // any other GDI-side styling read the host's choice from here
 // instead of hardcoding the shell's default.
 const FontOptions& active_font();
+// The monochrome icon face, or nullptr when its file was absent.
+// Draw with PushFont(icon_font(), px) or ImDrawList::AddText — the
+// glyphs take the current text color like any text.
+ImFont* icon_font();
 
 }

@@ -321,6 +321,77 @@ public:
     bool probe_active = false;
 };
 
+// ---- the mono icon proof: Noto Emoji through the icon font slot,
+// four sizes by four tints, light and dark ground side by side ----
+
+class IconsApp final : public os::App {
+public:
+    const char* id() const override
+    {
+        return "icons";
+    }
+
+    const char* name() const override
+    {
+        return "Mono Icons";
+    }
+
+    const char* mark() const override
+    {
+        return "🖤";
+    }
+
+    ImVec2 initial_size_em() const override
+    {
+        return { 40.0f, 26.0f };
+    }
+
+    void draw() override
+    {
+        const float s = mint_scale();
+        const ImVec2 min = ImGui::GetWindowPos();
+        const ImVec2 wsize = ImGui::GetWindowSize();
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        ImFont* icons = ui::icon_font();
+        ImGui::SetCursorScreenPos({ min.x + 14.0f * s, min.y + 12.0f * s });
+        if (icons == nullptr) {
+            ImGui::TextDisabled("icon font missing (assets/fonts)");
+            return;
+        }
+        // Bare codepoints, no FE0F: the icon face stands alone, no
+        // invisibles source rides in front of it.
+        static constexpr std::array<const char*, 10> kGlyphs
+            = { "⚙", "🔒", "🔌", "📁", "📄", "🗑", "🔍", "🏠", "⚠", "⭐" };
+        const ImU32 tints[] = {
+            IM_COL32(47, 51, 48, 255),   // ink
+            IM_COL32(90, 145, 60, 255),  // mint
+            IM_COL32(204, 66, 66, 255),  // warning
+            IM_COL32(240, 241, 240, 255) // paper (for the dark slab)
+        };
+        const float sizes[] = { 16.0f, 22.0f, 30.0f, 44.0f };
+        // The last tint row sits on ink to prove light-on-dark.
+        const float row0 = min.y + 40.0f * s;
+        const float row_h = 52.0f * s;
+        const ImVec2 slab_min { min.x + 8.0f * s, row0 + 3 * row_h - 8.0f * s };
+        const ImVec2 slab_max { min.x + wsize.x - 8.0f * s,
+            row0 + 4 * row_h + 4.0f * s };
+        draw->AddRectFilled(
+            slab_min, slab_max, IM_COL32(38, 41, 43, 255), 6.0f * s);
+        ImGui::TextDisabled("Noto Emoji mono · icon_font() · 染色即文本色");
+        // Rows 0-2: sizes small→large, each in its tint on the glass;
+        // row 3: paper tint on the ink slab, proving light-on-dark.
+        for (int row = 0; row < 4; ++row) {
+            float x = min.x + 16.0f * s;
+            const float y = row0 + row * row_h;
+            const float px = sizes[row] * s;
+            for (const char* g : kGlyphs) {
+                draw->AddText(icons, px, { x, y }, tints[row], g);
+                x += px + 14.0f * s;
+            }
+        }
+    }
+};
+
 class GalleryApp final : public os::App {
 public:
     const char* id() const override
@@ -663,10 +734,12 @@ int main(int argc, char** argv)
     FilesApp files;
     NotesApp notes;
     GalleryApp gallery;
+    IconsApp icons;
     os::Shell shell;
     shell.attach(&files);
     shell.attach(&notes);
     shell.attach(&gallery);
+    shell.attach(&icons);
     // IZAN_CARET_PROBE=1: open the notes window alone, inject a
     // synthetic click into its input through imgui's event queue (no
     // OS-level input, which this session cannot fake reliably), then
@@ -680,6 +753,8 @@ int main(int argc, char** argv)
         first = &notes;
     else if (first_id && std::string_view(first_id) == "gallery")
         first = &gallery;
+    else if (first_id && std::string_view(first_id) == "icons")
+        first = &icons;
     shell.wm().launch(first);
     WallpaperCache wallpaper;
 
