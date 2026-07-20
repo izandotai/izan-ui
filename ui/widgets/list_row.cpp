@@ -26,11 +26,11 @@ bool kit_list_row(const char* id, const char* title, const char* subtitle,
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (selected || hovered)
-        draw->AddRectFilled(pos, ImVec2(pos.x + row_w, pos.y + row_h),
+        kit_round_fill(draw, pos, ImVec2(pos.x + row_w, pos.y + row_h),
+            em * dl.selection_radius,
             ImGui::GetColorU32(
                 selected ? ImGuiCol_Header : ImGuiCol_HeaderHovered,
-                selected ? 1.0f : 0.55f),
-            em * dl.selection_radius);
+                selected ? 1.0f : 0.55f));
 
     const float avatar = em * dl.list_avatar;
     kit_avatar_at(ImVec2(pos.x + em * 0.35f, pos.y + (row_h - avatar) * 0.5f),

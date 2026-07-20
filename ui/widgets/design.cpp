@@ -1,6 +1,34 @@
 #include "ui/widgets/design.hpp"
 
+#include "ui/render/sdf_rect.hpp"
+
 namespace izan::ui {
+
+void kit_round_fill(
+    ImDrawList* draw, ImVec2 min, ImVec2 max, float radius, ImU32 color)
+{
+    render::SdfRect body;
+    body.min = min;
+    body.max = max;
+    body.radius[0] = body.radius[1] = body.radius[2] = body.radius[3]
+        = radius > 0.0f ? radius : 0.0f;
+    body.fill = color;
+    render::sdf_rect(draw, body);
+}
+
+void kit_round_border(ImDrawList* draw, ImVec2 min, ImVec2 max, float radius,
+    ImVec4 color, float px)
+{
+    render::SdfRect ring;
+    ring.min = min;
+    ring.max = max;
+    ring.radius[0] = ring.radius[1] = ring.radius[2] = ring.radius[3]
+        = radius > 0.0f ? radius : 0.0f;
+    color.w *= design().border_alpha;
+    ring.border = ImGui::GetColorU32(color);
+    ring.border_px = px > 0.0f ? px : design().border_px;
+    render::sdf_rect(draw, ring);
+}
 
 namespace {
 

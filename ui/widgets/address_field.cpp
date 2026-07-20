@@ -39,11 +39,11 @@ namespace {
     {
         // A clipboard: the board, and the clip riding its top edge.
         const float r = d * 0.12f;
-        draw->AddRect(ImVec2(pos.x + d * 0.2f, pos.y + d * 0.16f),
-            ImVec2(pos.x + d * 0.8f, pos.y + d * 0.92f), color, r, 0,
-            d * 0.075f);
-        draw->AddRectFilled(ImVec2(pos.x + d * 0.36f, pos.y + d * 0.06f),
-            ImVec2(pos.x + d * 0.64f, pos.y + d * 0.24f), color, r * 0.7f);
+        kit_round_border(draw, ImVec2(pos.x + d * 0.2f, pos.y + d * 0.16f),
+            ImVec2(pos.x + d * 0.8f, pos.y + d * 0.92f), r,
+            ImGui::ColorConvertU32ToFloat4(color), d * 0.075f);
+        kit_round_fill(draw, ImVec2(pos.x + d * 0.36f, pos.y + d * 0.06f),
+            ImVec2(pos.x + d * 0.64f, pos.y + d * 0.24f), r * 0.7f, color);
     }
 
     void draw_clear_glyph(ImDrawList* draw, ImVec2 pos, float d, ImU32 color)
@@ -97,9 +97,8 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
     };
     const float rejected_at = store->GetFloat(reject_key, -1.0e9f);
     if (ImGui::GetTime() - rejected_at < 0.8) {
-        ImGui::GetWindowDrawList()->AddRect(pos, fmax,
-            ImGui::GetColorU32(kit_danger()), ImGui::GetStyle().FrameRounding,
-            0, 2.0f);
+        kit_round_border(ImGui::GetWindowDrawList(), pos, fmax,
+            ImGui::GetStyle().FrameRounding, kit_danger());
     }
 
     // The trailing glyph: paste into an empty field, clear a full one.

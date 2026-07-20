@@ -75,8 +75,8 @@ namespace {
             IM_COL32(255, 255, 255, int(56.0f * g)));
 
         if (with_rim)
-            draw->AddRect(
-                min, max, IM_COL32(0, 0, 0, int(48.0f * g)), rounding, 0, 1.0f);
+            kit_round_border(
+                draw, min, max, rounding, ImVec4(0, 0, 0, 48.0f / 255.0f * g));
     }
 
     // Every kit button rides the analytic base: an SDF capsule for
@@ -113,9 +113,11 @@ namespace {
             = rounding;
         body.fill = ImGui::GetColorU32(base);
         if (g > 0.0f) {
-            body.border
-                = ImGui::GetColorU32(ImVec4(0, 0, 0, 48.0f / 255.0f * g));
-            body.border_px = 1.0f;
+            // The seating rim at the kit gauge (2px decree), eased by
+            // the language's border alpha.
+            body.border = ImGui::GetColorU32(
+                ImVec4(0, 0, 0, 48.0f / 255.0f * g * design().border_alpha));
+            body.border_px = design().border_px;
         }
         render::sdf_rect(draw, body);
         paint_gloss(rounding, false);

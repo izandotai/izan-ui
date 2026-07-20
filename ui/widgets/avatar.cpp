@@ -27,8 +27,8 @@ void kit_avatar_at(ImVec2 pos, const char* name, float size)
     const ImVec4 color = kit_identity_color(name);
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size),
-        ImGui::GetColorU32(color), size * dl.avatar_radius);
+    kit_round_fill(draw, pos, ImVec2(pos.x + size, pos.y + size),
+        size * dl.avatar_radius, ImGui::GetColorU32(color));
 
     // The first UTF-8 character of the name, centered in white.
     const char* end = name;

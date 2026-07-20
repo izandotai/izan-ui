@@ -49,11 +49,11 @@ AssetRowEvent kit_asset_row(const char* id, const char* symbol,
     if (ev.hovered || dots_hover) {
         const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
         const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-        draw->AddRectFilled(ImVec2(pos.x - em * 0.3f, pos.y),
+        kit_round_fill(draw, ImVec2(pos.x - em * 0.3f, pos.y),
             ImVec2(pos.x + row_w + em * 0.3f, pos.y + row_h),
+            ImGui::GetFontSize() * design().selection_radius,
             ImGui::GetColorU32(
-                kit_blend(bg, text, kit_is_dark() ? 0.06f : 0.045f)),
-            ImGui::GetFontSize() * design().selection_radius);
+                kit_blend(bg, text, kit_is_dark() ? 0.06f : 0.045f)));
     }
     const float avatar = em * 1.6f;
     kit_avatar_at(

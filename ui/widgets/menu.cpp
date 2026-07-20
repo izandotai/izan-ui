@@ -89,10 +89,10 @@ bool kit_menu_item_icon(const char* swatch_name, const char* label,
     // edge every row shares.
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImVec2 sp(kit_snap(pos.x), kit_snap(pos.y + (row_h - sw) * 0.5f));
-    draw->AddRectFilled(sp, ImVec2(sp.x + sw, sp.y + sw),
-        ImGui::GetColorU32(kit_identity_color(swatch_name)), sw * 0.22f);
-    draw->AddRect(
-        sp, ImVec2(sp.x + sw, sp.y + sw), IM_COL32(0, 0, 0, 40), sw * 0.22f);
+    kit_round_fill(draw, sp, ImVec2(sp.x + sw, sp.y + sw), sw * 0.22f,
+        ImGui::GetColorU32(kit_identity_color(swatch_name)));
+    kit_round_border(draw, sp, ImVec2(sp.x + sw, sp.y + sw), sw * 0.22f,
+        ImVec4(0, 0, 0, 40.0f / 255.0f), 1.0f);
     draw->AddText(ImVec2(kit_snap(pos.x + sw + em * 0.55f),
                       kit_snap(pos.y + (row_h - em) * 0.5f)),
         ImGui::GetColorU32(ImGuiCol_Text), label);

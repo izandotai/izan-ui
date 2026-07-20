@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "ui/shell/fonts.hpp"
+#include "ui/widgets/design.hpp"
 
 namespace izan::os::mint {
 
@@ -119,8 +120,9 @@ bool izan_input(const char* id, const char* hint_text, char* buf,
 {
     const float s = mint_scale();
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(min, max, style.bg, style.rounding * s);
-    draw->AddRect(min, max, style.border, style.rounding * s, 0, 1.0f);
+    ui::kit_round_fill(draw, min, max, style.rounding * s, style.bg);
+    ui::kit_round_border(draw, min, max, style.rounding * s,
+        ImGui::ColorConvertU32ToFloat4(style.border));
 
     const float pad = 3.0f * s;
     const float input_h = kFontBody * s + 2.0f * pad;

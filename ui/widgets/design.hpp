@@ -51,6 +51,14 @@ struct DesignLanguage {
     float dialog_glyph = 2.0f;  // dialog emoji icon
     float lock_avatar = 3.0f;   // the lock screen's centerpiece
 
+    // -- borders (2026-07-20 decree) --
+    // Every rounded border in the kit rides the analytic base at this
+    // gauge, and slightly translucent: a fully opaque ring reads hard
+    // against its own AA edge — at ~0.9 the rim seats into the
+    // surface instead of sitting on it.
+    float border_px = 2.0f;
+    float border_alpha = 0.9f;
+
     // -- buttons --
     // Shape and finish are tokens, not code: flip these to restyle
     // every button in the app at once.
@@ -86,6 +94,16 @@ ImVec4 kit_blend(const ImVec4& a, const ImVec4& b, float t);
 bool kit_is_dark();  // does the active theme read as dark
 ImVec4 kit_accent(); // the theme's accent (checkmark color)
 ImVec4 kit_danger(); // destructive red, blended toward the theme
+
+// The kit's only two doors to rounded geometry (2026-07-20 decree:
+// no polygon arcs anywhere in the kit — every rounded fill and
+// border is analytic). The border door applies the language's gauge
+// and alpha: px <= 0 takes design().border_px, and the color's alpha
+// is scaled by border_alpha so rings seat into the surface.
+void kit_round_fill(
+    ImDrawList* draw, ImVec2 min, ImVec2 max, float radius, ImU32 color);
+void kit_round_border(ImDrawList* draw, ImVec2 min, ImVec2 max, float radius,
+    ImVec4 color, float px = 0.0f);
 
 // Whole pixels only: font sizes and hand-drawn text positions snap to
 // the grid, or FreeType renders them soft.

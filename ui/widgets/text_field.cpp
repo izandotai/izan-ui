@@ -23,18 +23,11 @@ namespace {
         return kit_blend(bg, ImVec4(1, 1, 1, 1), 0.55f);
     }
 
-    // One analytic ring: sdf_rect with border only, radius per inset.
+    // Rings route through the kit door: language gauge and alpha.
     void sdf_ring(ImDrawList* draw, ImVec2 min, ImVec2 max, float r,
         const ImVec4& color, float px)
     {
-        render::SdfRect ring;
-        ring.min = min;
-        ring.max = max;
-        ring.radius[0] = ring.radius[1] = ring.radius[2] = ring.radius[3]
-            = r > 0.0f ? r : 0.0f;
-        ring.border = ImGui::GetColorU32(color);
-        ring.border_px = px;
-        render::sdf_rect(draw, ring);
+        kit_round_border(draw, min, max, r, color, px);
     }
 
     // The recessed twin of the button's four-stroke gloss, mirrored

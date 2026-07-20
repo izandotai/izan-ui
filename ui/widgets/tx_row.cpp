@@ -31,11 +31,11 @@ bool kit_tx_row(const char* id, bool incoming, const char* counterparty,
     if (hovered) {
         const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
         const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-        draw->AddRectFilled(ImVec2(pos.x - em * 0.3f, pos.y),
+        kit_round_fill(draw, ImVec2(pos.x - em * 0.3f, pos.y),
             ImVec2(pos.x + row_w + em * 0.3f, pos.y + row_h),
+            em * design().selection_radius,
             ImGui::GetColorU32(
-                kit_blend(bg, text, kit_is_dark() ? 0.06f : 0.045f)),
-            em * design().selection_radius);
+                kit_blend(bg, text, kit_is_dark() ? 0.06f : 0.045f)));
     }
 
     // With a face, the asset's minted avatar leads and the direction

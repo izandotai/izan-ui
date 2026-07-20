@@ -520,11 +520,15 @@ private:
         std::stringstream text;
         text << in.rdbuf();
         const std::string svg = text.str();
-        int w = 1920, h = 1200;
+        // Half the monitor, GPU-upscaled: the artwork is smooth
+        // gradients, a 2x stretch is invisible — and the CPU raster
+        // (the biggest single cost between click and window) drops
+        // to a quarter.
+        int w = 1920 / 2, h = 1200 / 2;
         if (const GLFWvidmode* mode
             = glfwGetVideoMode(glfwGetPrimaryMonitor())) {
-            w = mode->width;
-            h = mode->height;
+            w = mode->width / 2;
+            h = mode->height / 2;
         }
         const izan::render::SvgBitmap art
             = izan::render::raster_svg_cover(svg.c_str(), w, h);

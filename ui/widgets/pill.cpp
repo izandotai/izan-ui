@@ -1,5 +1,6 @@
 #include "ui/widgets/pill.hpp"
 
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/label.hpp"
 
 namespace izan::ui {
@@ -16,8 +17,8 @@ void kit_pill(const char* text, ImVec4 tint)
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec4 bg = tint;
     bg.w = 0.16f;
-    draw->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
-        ImGui::GetColorU32(bg), size.y * 0.5f);
+    kit_round_fill(draw, pos, ImVec2(pos.x + size.x, pos.y + size.y),
+        size.y * 0.5f, ImGui::GetColorU32(bg));
     draw->AddText(
         ImVec2(pos.x + pad_x, pos.y + pad_y), ImGui::GetColorU32(tint), text);
     ImGui::Dummy(size);

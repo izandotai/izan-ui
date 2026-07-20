@@ -213,10 +213,6 @@ void GlfwApp::end_frame(const ImVec4& clear_color) const
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-    // Per-frame cursor fallback: WM_SETCURSOR does not fire when the
-    // shape changes while the mouse sits still.
-    apply_custom_cursor();
-
     glfwSwapBuffers(window_);
 
 #ifdef _WIN32
@@ -231,6 +227,14 @@ void GlfwApp::end_frame(const ImVec4& clear_color) const
         }
     }
 #endif
+
+    // Per-frame cursor fallback: WM_SETCURSOR does not fire when the
+    // shape changes while the mouse sits still. Deliberately AFTER
+    // the present: the in-frame drag cursor reaches the screen with
+    // this composition, so hiding (or restoring) the hardware cursor
+    // here lands in the same beat — flip it before the swap and a
+    // press or release blinks a cursorless (or double-cursor) frame.
+    apply_custom_cursor();
 }
 
 void GlfwApp::shutdown()

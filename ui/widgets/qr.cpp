@@ -5,6 +5,8 @@
 #include <imgui.h>
 #include <qrcodegen.hpp>
 
+#include "ui/widgets/design.hpp"
+
 namespace izan::ui {
 
 void kit_qr(const char* text, float size_em)
@@ -35,8 +37,8 @@ void kit_qr(const char* text, float size_em)
     const float inset_x = float(int((want - side) / 2));
     const float inset_y = inset_x;
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(pos, ImVec2(pos.x + want, pos.y + want),
-        IM_COL32(255, 255, 255, 255), cell * 2.0f);
+    kit_round_fill(draw, pos, ImVec2(pos.x + want, pos.y + want), cell * 2.0f,
+        IM_COL32(255, 255, 255, 255));
     const float ox = pos.x + inset_x + cell * float(quiet);
     const float oy = pos.y + inset_y + cell * float(quiet);
     for (int y = 0; y < n; ++y)
