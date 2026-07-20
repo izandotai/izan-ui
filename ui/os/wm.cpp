@@ -284,8 +284,11 @@ void Wm::paint_window(int index)
         }
     }
 
-    if (w.open) {
-        // The content region: real widgets, clipped to the body.
+    {
+        // The content region: real widgets, clipped to the body. Drawn
+        // even on the frame a control just closed or minimized the
+        // window — skipping it leaves one frame of hollow chrome, a
+        // visible blink on the way out.
         ImGui::SetCursorScreenPos({ rmin.x + 1.0f, rmin.y + title_h + 1.0f });
         ImGui::PushStyleVar(
             ImGuiStyleVar_WindowPadding, ImVec2(em * 0.9f, em * 0.7f));

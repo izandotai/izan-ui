@@ -16,6 +16,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -74,7 +75,7 @@ public:
 
         // The toolbar: history arrows, refresh, path bar, search.
         const ImVec2 toolbar_max { max.x, min.y + 56.0f * s };
-        draw->AddRectFilled(min, toolbar_max, IM_COL32(244, 245, 244, 255));
+        draw->AddRectFilled(min, toolbar_max, IM_COL32(244, 245, 244, 204));
         draw->AddLine({ min.x, toolbar_max.y }, { max.x, toolbar_max.y },
             IM_COL32(70, 73, 71, 35), 1.0f);
         const float toolbar_center_y = (min.y + toolbar_max.y) * 0.5f;
@@ -147,7 +148,7 @@ public:
         const float sidebar_width = 224.0f * s;
         draw->AddRectFilled(content_min,
             { content_min.x + sidebar_width, status_top },
-            IM_COL32(235, 237, 235, 255));
+            IM_COL32(235, 237, 235, 204));
         draw->AddLine({ content_min.x + sidebar_width, content_min.y },
             { content_min.x + sidebar_width, status_top },
             IM_COL32(65, 69, 66, 38), 1.0f);
@@ -186,7 +187,7 @@ public:
         // The file grid.
         const ImVec2 files_min { content_min.x + sidebar_width, content_min.y };
         const ImVec2 files_max { max.x, status_top };
-        draw->AddRectFilled(files_min, files_max, IM_COL32(248, 249, 248, 255));
+        draw->AddRectFilled(files_min, files_max, IM_COL32(248, 249, 248, 204));
         text_vcentered(draw, files_min.x + 28.0f * s, files_min.y + 31.0f * s,
             IM_COL32(42, 46, 43, 255),
             kPlaces[static_cast<std::size_t>(sidebar_item_)],
@@ -257,7 +258,7 @@ public:
 
         // The status bar closes the window with the body's rounding.
         draw->AddRectFilled({ min.x, status_top }, max,
-            IM_COL32(243, 244, 243, 255), rounding * s,
+            IM_COL32(243, 244, 243, 204), rounding * s,
             ImDrawFlags_RoundCornersBottom);
         draw->AddLine({ min.x, status_top }, { max.x, status_top },
             IM_COL32(62, 66, 63, 34), 1.0f);
@@ -402,6 +403,17 @@ void draw_mint_host_frame(GLFWwindow* window)
     text_vcentered(draw, min.x + 42.0f * s, (min.y + max.y) * 0.5f,
         IM_COL32(231, 233, 234, 255), "izan OS · Cinnamon 测试皮肤",
         kFontWindowTitle * s);
+
+    // IZAN_OS_STATS=1: the frame clock on the bar, so a performance
+    // argument is settled by numbers instead of feel.
+    if (std::getenv("IZAN_OS_STATS") != nullptr) {
+        char stats[64] {};
+        const ImGuiIO& io = ImGui::GetIO();
+        std::snprintf(stats, sizeof stats, "%.1f fps · %.2f ms", io.Framerate,
+            1000.0f / (io.Framerate > 1.0f ? io.Framerate : 1.0f));
+        text_vcentered(draw, min.x + 340.0f * s, (min.y + max.y) * 0.5f,
+            IM_COL32(160, 200, 130, 255), stats, kFontBodyCompact * s);
+    }
 
     const float button_width = 46.0f * s;
     for (int i = 0; i < 3; ++i) {

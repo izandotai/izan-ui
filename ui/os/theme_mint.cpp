@@ -48,11 +48,15 @@ namespace {
             const float rounding = 8.0f * s;
 
             window_shadow(draw, rmin, rmax, rounding, s);
+            // The window carries 0.96 opacity as a whole: the body and
+            // whatever surface the app paints over it stack two layers
+            // of alpha 204 — 1-(1-0.8)^2 = 0.96 — so the wallpaper
+            // breathes through evenly everywhere.
             draw->AddRectFilled(
-                rmin, rmax, IM_COL32(247, 248, 247, 255), rounding);
+                rmin, rmax, IM_COL32(247, 248, 247, 204), rounding);
 
             const ImVec2 title_max { rmax.x, rmin.y + title_h };
-            draw->AddRectFilled(rmin, title_max, IM_COL32(232, 234, 232, 255),
+            draw->AddRectFilled(rmin, title_max, IM_COL32(232, 234, 232, 204),
                 rounding, ImDrawFlags_RoundCornersTop);
             draw->AddLine({ rmin.x, title_max.y }, { rmax.x, title_max.y },
                 IM_COL32(69, 73, 70, 45), 1.0f);
@@ -99,6 +103,12 @@ namespace {
                                     : IM_COL32(68, 72, 69, 255),
                     s);
             }
+
+            // The outline lands last, over the hovered controls, so
+            // the rounded outer edge never breaks at a corner — and a
+            // rounded fill without its stroke reads as a ragged edge.
+            draw->AddRect(
+                rmin, rmax, IM_COL32(25, 29, 28, 82), rounding, 0, 1.0f);
         }
 
         void paint_wallpaper(

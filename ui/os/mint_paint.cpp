@@ -107,11 +107,20 @@ void control_icon(ImDrawList* draw, ImVec2 center, int control, bool restore,
 void window_shadow(
     ImDrawList* draw, ImVec2 min, ImVec2 max, float rounding, float scale)
 {
-    for (int layer = 7; layer >= 1; --layer) {
-        const float spread = layer * 2.0f * scale;
-        draw->AddRectFilled({ min.x - spread, min.y - spread * 0.2f },
-            { max.x + spread, max.y + spread },
-            IM_COL32(0, 0, 0, 8 + layer * 2), rounding + spread);
+    // The kit menu's depth profile: a dozen faint rings fading fast —
+    // small, blurred, light. A heavy halo reads as smear the moment
+    // the window moves.
+    static constexpr float kAlpha[12]
+        = { 0.020f, 0.017f, 0.014f, 0.011f, 0.0085f, 0.0065f, 0.0050f, 0.0038f,
+              0.0028f, 0.0020f, 0.0014f, 0.0010f };
+    const float drop = 1.5f * scale;
+    for (int index = 11; index >= 0; --index) {
+        const float spread
+            = (2.0f + static_cast<float>(index + 1) * 1.75f) * scale;
+        draw->AddRectFilled({ min.x - spread, min.y - spread + drop },
+            { max.x + spread, max.y + spread + drop },
+            IM_COL32(0, 0, 0, static_cast<int>(kAlpha[index] * 255.0f + 0.5f)),
+            rounding + spread);
     }
 }
 
