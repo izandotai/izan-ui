@@ -409,6 +409,13 @@ int main()
     bool show_demo = false;
 
     SmokeSettings settings = load_smoke_settings();
+    // IZAN_THEME=<index> pins the theme for probe runs — the dialog
+    // shell must be judged in the light themes too.
+    if (const char* t = std::getenv("IZAN_THEME")) {
+        const int ti = std::atoi(t);
+        if (ti >= 0 && ti < int(izan::ui::kThemeNames.size()))
+            settings.theme_index = ti;
+    }
     chrome.theme_index = settings.theme_index;
     izan::ui::apply_theme_style_only(settings.theme_index);
     izan::ui::LayoutKeeper keeper;
