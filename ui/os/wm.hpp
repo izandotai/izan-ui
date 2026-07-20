@@ -33,6 +33,10 @@ public:
     // Open (or restore) and raise an app's window.
     void launch(App* app);
 
+    // Taskbar-button semantics: closed opens, minimized restores,
+    // focused minimizes, anything else comes to the front.
+    void toggle(App* app);
+
     void set_theme(const Theme* theme)
     {
         theme_ = theme;
@@ -40,13 +44,14 @@ public:
 
     const Theme& theme() const
     {
-        return theme_ ? *theme_ : mac_theme();
+        return theme_ ? *theme_ : mint_theme();
     }
 
-    // One frame: input pre-pass, then paint. `blocked_min/max` is a
-    // rectangle (the dock shelf) whose clicks belong to someone else.
-    void frame(ImVec2 ws_min, ImVec2 ws_max, ImVec2 blocked_min,
-        ImVec2 blocked_max);
+    // One frame: input pre-pass, then paint. `blocked` are rectangles
+    // (dock shelf, panel, open popups) whose clicks belong to someone
+    // else.
+    void frame(
+        ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked);
 
     App* focused() const;
     bool running(const App* app) const;

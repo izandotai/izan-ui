@@ -1,5 +1,5 @@
 // The izan OS acceptance shell: the family chrome outside, the
-// windowing kernel inside, three real apps on the dock — every
+// windowing kernel inside, three real apps on the panel — every
 // window full of live kit widgets, never a scaled picture.
 // --screenshot <file.bmp> renders a few frames and exits.
 
@@ -82,7 +82,7 @@ public:
             ui::kit_table_headers(kHeads, 3);
             static constexpr std::array<std::array<const char*, 3>, 3> kRows
                 = { { { "SOL", "12.4", "在线" }, { "ETH", "0.88", "在线" },
-                      { "BTC", "0.02", "观察" } } };
+                    { "BTC", "0.02", "观察" } } };
             for (const auto& row : kRows) {
                 ImGui::TableNextRow();
                 for (int c = 0; c < 3; ++c) {
@@ -165,7 +165,7 @@ public:
         ImGui::TextDisabled("窗口内核 · 一套主题接口 · 家族所有产品的基石");
         ui::kit_vspace(0.3f);
         ImGui::TextDisabled("机制归内核，像素归主题：");
-        ImGui::TextDisabled("macOS 风只是第一个主题实现。");
+        ImGui::TextDisabled("换一张皮，内核一行不动。");
     }
 };
 
@@ -275,8 +275,7 @@ int main(int argc, char** argv)
 
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float top = ui::kWindowFrameMargin + ui::kTitleBarHeight;
-        shell.frame(
-            ImVec2(vp->Pos.x + ui::kWindowFrameMargin, vp->Pos.y + top),
+        shell.frame(ImVec2(vp->Pos.x + ui::kWindowFrameMargin, vp->Pos.y + top),
             ImVec2(vp->Size.x - ui::kWindowFrameMargin * 2.0f,
                 vp->Size.y - top - ui::kWindowFrameMargin));
 

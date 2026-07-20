@@ -6,10 +6,9 @@
 
 // The mechanism/presentation split that makes the shell portable
 // across desktop cultures. The kernel (Wm) owns state and input and
-// never paints; a Theme owns every pixel and every metric. macOS is
-// the first Theme — a Mint or Ubuntu look is a new implementation
-// of this interface, the kernel untouched: window buttons may sit
-// right instead of left, the dock may become a taskbar, and the
+// never paints; a Theme owns every pixel and every metric. Another
+// look is a new implementation of this interface, the kernel
+// untouched: window buttons may move, metrics may change, and the
 // kernel only ever asks "where are the controls" and "paint this".
 
 namespace izan::os {
@@ -43,18 +42,22 @@ public:
     // them from the drag zone. A theme without some control returns
     // an empty rect.
     virtual OsRect control_rect(
-        WindowControl control, ImVec2 rmin, ImVec2 rmax, float em) const = 0;
+        WindowControl control, ImVec2 rmin, ImVec2 rmax, float em) const
+        = 0;
 
     // The whole chrome: shadow, body, title strip, controls, title
     // text, resize grip. Content is painted by the app afterwards.
     virtual void paint_window(ImDrawList* draw, const WindowLook& look,
-        ImVec2 rmin, ImVec2 rmax, float em) const = 0;
+        ImVec2 rmin, ImVec2 rmax, float em) const
+        = 0;
 
     virtual void paint_wallpaper(
-        ImDrawList* draw, ImVec2 min, ImVec2 max, float em) const = 0;
+        ImDrawList* draw, ImVec2 min, ImVec2 max, float em) const
+        = 0;
 };
 
-// The built-in look: macOS-cultured, izan-themed colors.
-const Theme& mac_theme();
+// The working development skin: Mint-cultured — bottom panel,
+// right-hand window controls, geometric wallpaper.
+const Theme& mint_theme();
 
 }

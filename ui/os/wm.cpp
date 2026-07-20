@@ -55,6 +55,30 @@ void Wm::launch(App* app)
     raise(index);
 }
 
+void Wm::toggle(App* app)
+{
+    const int index = index_of(app);
+    if (index < 0)
+        return;
+    WindowState& w = windows_[static_cast<std::size_t>(index)];
+    if (!w.open) {
+        launch(app);
+        return;
+    }
+    if (w.minimized) {
+        w.minimized = false;
+        w.spawn_focus = true;
+        raise(index);
+        return;
+    }
+    if (focused() == app) {
+        w.minimized = true;
+        return;
+    }
+    w.spawn_focus = true;
+    raise(index);
+}
+
 int Wm::index_of(const App* app) const
 {
     for (std::size_t i = 0; i < windows_.size(); ++i)
@@ -93,8 +117,7 @@ bool Wm::minimized(const App* app) const
     return i >= 0 && windows_[static_cast<std::size_t>(i)].minimized;
 }
 
-void Wm::frame(
-    ImVec2 ws_min, ImVec2 ws_max, ImVec2 blocked_min, ImVec2 blocked_max)
+void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
 {
     ws_min_ = ws_min;
     ws_max_ = ws_max;
@@ -120,8 +143,8 @@ void Wm::frame(
             // title the whole drag, so a clamp never desyncs it.
             w.pos.x = std::clamp(io.MousePos.x - grab_offset_.x,
                 ws_min.x - w.size.x + em * 6.0f, ws_max.x - em * 6.0f);
-            w.pos.y = std::clamp(io.MousePos.y - grab_offset_.y, ws_min.y,
-                ws_max.y - title_h);
+            w.pos.y = std::clamp(
+                io.MousePos.y - grab_offset_.y, ws_min.y, ws_max.y - title_h);
         }
     } else if (resize_ >= 0) {
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
@@ -134,7 +157,8 @@ void Wm::frame(
                 em * 10.0f, grab_size_.y + (io.MousePos.y - grab_mouse_.y));
         }
     } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
-        && !inside(io.MousePos, blocked_min, blocked_max)) {
+        && std::none_of(blocked.begin(), blocked.end(),
+            [&](const OsRect& r) { return r.contains(io.MousePos); })) {
         for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
             WindowState& w = windows_[static_cast<std::size_t>(*it)];
             if (!w.open || w.minimized)
@@ -223,8 +247,8 @@ void Wm::paint_window(int index)
 
     // Control actions live in the kernel; the theme only says where.
     for (int c = 0; c < 3; ++c) {
-        const OsRect r = look.control_rect(
-            static_cast<WindowControl>(c), rmin, rmax, em);
+        const OsRect r
+            = look.control_rect(static_cast<WindowControl>(c), rmin, rmax, em);
         if (r.max.x <= r.min.x)
             continue;
         ImGui::SetCursorScreenPos(r.min);
@@ -256,8 +280,7 @@ void Wm::paint_window(int index)
         ImGui::SetCursorScreenPos({ rmin.x + 1.0f, rmin.y + title_h + 1.0f });
         ImGui::PushStyleVar(
             ImGuiStyleVar_WindowPadding, ImVec2(em * 0.9f, em * 0.7f));
-        const std::string content
-            = std::string("##os-content-") + w.app->id();
+        const std::string content = std::string("##os-content-") + w.app->id();
         ImGui::BeginChild(content.c_str(),
             { rsize.x - 2.0f, rsize.y - title_h - 2.0f }, ImGuiChildFlags_None,
             ImGuiWindowFlags_NoSavedSettings);

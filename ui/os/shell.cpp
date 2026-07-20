@@ -35,12 +35,12 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 
-    // The bar carves the workspace; windows live below it, the dock
-    // floats over them and owns its own clicks.
-    const float bar_h = menu_.frame(wm_, mark_, pos, view_max);
-    const ImVec2 ws_min { pos.x, pos.y + bar_h };
-    wm_.frame(ws_min, view_max, dock_.shelf_min(), dock_.shelf_max());
-    dock_.frame(wm_, apps_, ws_min, view_max);
+    // The panel carves the workspace from below; windows live above
+    // it and its click territory (strip plus open menu) is blocked
+    // from window input.
+    const ImVec2 ws_max { view_max.x, view_max.y - panel_.height(em) };
+    wm_.frame(pos, ws_max, panel_.blocked());
+    panel_.frame(wm_, apps_, mark_, pos, view_max);
 }
 
 }

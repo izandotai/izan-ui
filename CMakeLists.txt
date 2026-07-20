@@ -136,16 +136,15 @@ function(izan_ui_copy_assets target)
 endfunction()
 
 # izan OS: the desktop-grade windowing kernel every family product
-# stands on. Mechanism (window manager, dock model, app registry)
-# is style-free; every pixel routes through the Theme interface —
-# the macOS-cultured look is the first theme, a Mint or Ubuntu look
-# is a new implementation, the kernel untouched.
+# stands on. Mechanism (window manager, panel, app registry) is
+# style-free; every window pixel routes through the Theme interface —
+# Mint-cultured is the working development skin, another look is a
+# new implementation, the kernel untouched.
 if(IZAN_UI_SHELL)
     add_library(izan_os STATIC
-        ui/os/dock.cpp
-        ui/os/menu_bar.cpp
+        ui/os/panel.cpp
         ui/os/shell.cpp
-        ui/os/theme_mac.cpp
+        ui/os/theme_mint.cpp
         ui/os/wm.cpp
     )
     add_library(izan::os ALIAS izan_os)
@@ -162,32 +161,8 @@ if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
         izan_ui_smoke PRIVATE izan_ui_shell izan_kit glaze::glaze)
     izan_ui_copy_assets(izan_ui_smoke)
 
-    # A macOS desktop drawn stroke by stroke with ImDrawList — no
-    # screenshots, no textures. What the raw draw layer can carry:
-    # wallpaper, menu bar, Finder, Dock, control center, all live —
-    # one component per translation unit, wrapped in the family
-    # chrome. --screenshot <file.bmp> for a headless capture.
-    add_executable(izan_ui_macos_demo WIN32
-        demo/macos/main.cpp
-        demo/macos/apple_menu.cpp
-        demo/macos/control_center.cpp
-        demo/macos/desktop.cpp
-        demo/macos/desktop_icons.cpp
-        demo/macos/dock.cpp
-        demo/macos/finder.cpp
-        demo/macos/finder_content.cpp
-        demo/macos/finder_sidebar.cpp
-        demo/macos/menu_bar.cpp
-        demo/macos/paint.cpp
-        demo/macos/wallpaper.cpp
-    )
-    target_include_directories(
-        izan_ui_macos_demo PRIVATE demo/macos)
-    target_link_libraries(izan_ui_macos_demo PRIVATE izan_ui_shell)
-    izan_ui_copy_assets(izan_ui_macos_demo)
-
-    # The izan OS acceptance shell: kernel + mac theme + three apps
-    # of live kit widgets on the dock.
+    # The izan OS acceptance shell: kernel + working theme + three
+    # apps of live kit widgets on the panel.
     add_executable(izan_ui_os_demo WIN32 demo/os/main.cpp)
     target_link_libraries(
         izan_ui_os_demo PRIVATE izan_ui_shell izan_os izan_kit)
