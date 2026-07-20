@@ -6,8 +6,6 @@
 // The registry and system settings are never touched.
 #include "ui/shell/win_chrome.hpp"
 
-#include "ui/shell/cursor_paint.hpp"
-
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -21,7 +19,6 @@
 #include <imgui.h>
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <vector>
@@ -180,44 +177,6 @@ namespace {
         DestroyCursor(src); // LoadImage handles are unshared; retire it
         return out;
     }
-
-    // A CursorArt becomes a live HCURSOR: straight-alpha DIB in, the
-    // alpha channel carries the blend, the mono mask is vestigial.
-    HCURSOR make_cursor(const CursorArt& art)
-    {
-        if (art.px.empty())
-            return nullptr;
-        BITMAPINFO bi {};
-        bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bi.bmiHeader.biWidth = art.w;
-        bi.bmiHeader.biHeight = -art.h; // top-down, like the art
-        bi.bmiHeader.biPlanes = 1;
-        bi.bmiHeader.biBitCount = 32;
-        bi.bmiHeader.biCompression = BI_RGB;
-        HDC dc = CreateCompatibleDC(nullptr);
-        void* bits = nullptr;
-        HBITMAP color
-            = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-        if (color == nullptr || bits == nullptr) {
-            if (color)
-                DeleteObject(color);
-            DeleteDC(dc);
-            return nullptr;
-        }
-        std::memcpy(bits, art.px.data(), art.px.size() * 4);
-        HBITMAP mask = CreateBitmap(art.w, art.h, 1, 1, nullptr);
-        ICONINFO ni {};
-        ni.fIcon = FALSE;
-        ni.xHotspot = static_cast<DWORD>(art.hot_x);
-        ni.yHotspot = static_cast<DWORD>(art.hot_y);
-        ni.hbmColor = color;
-        ni.hbmMask = mask;
-        HCURSOR out = static_cast<HCURSOR>(CreateIconIndirect(&ni));
-        DeleteObject(color);
-        DeleteObject(mask);
-        DeleteDC(dc);
-        return out;
-    }
 #endif
     bool g_active = false;
 }
@@ -246,29 +205,14 @@ bool install_custom_cursors(const std::filesystem::path& dir)
         { ImGuiMouseCursor_Hand, L"Link.cur" },
         { ImGuiMouseCursor_NotAllowed, L"Unavailable.cur" },
     };
-    // Cursor files beside the exe stay the customization hook and win
-    // the slot; IZAN_BUILTIN_CURSORS=1 ignores them for A/B runs.
-    if (std::getenv("IZAN_BUILTIN_CURSORS") == nullptr) {
-        for (const Entry& e : entries) {
-            const std::filesystem::path p = dir / e.file;
-            std::error_code ec;
-            if (!std::filesystem::exists(p, ec))
-                continue;
-            if (HANDLE h = LoadImageW(nullptr, p.wstring().c_str(),
-                    IMAGE_CURSOR, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE))
-                g_custom[e.slot] = bake_shadow(static_cast<HCURSOR>(h));
-        }
-    }
-    // Empty slots fall back to the built-in analytic set, painted at
-    // the system's cursor size — the exe carries its whole look.
-    int size = GetSystemMetrics(SM_CXCURSOR);
-    if (size <= 0)
-        size = 32;
     for (const Entry& e : entries) {
-        if (g_custom[e.slot] != nullptr)
+        const std::filesystem::path p = dir / e.file;
+        std::error_code ec;
+        if (!std::filesystem::exists(p, ec))
             continue;
-        if (HCURSOR h = make_cursor(paint_cursor(e.slot, size)))
-            g_custom[e.slot] = bake_shadow(h);
+        if (HANDLE h = LoadImageW(nullptr, p.wstring().c_str(), IMAGE_CURSOR, 0,
+                0, LR_LOADFROMFILE | LR_DEFAULTSIZE))
+            g_custom[e.slot] = bake_shadow(static_cast<HCURSOR>(h));
     }
     if (g_custom[ImGuiMouseCursor_Arrow] == nullptr)
         return false; // no arrow, no takeover
