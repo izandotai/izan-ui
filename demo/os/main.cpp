@@ -73,9 +73,13 @@ public:
         ImDrawList* draw = ImGui::GetWindowDrawList();
         constexpr float rounding = 8.0f;
 
-        // The toolbar: history arrows, refresh, path bar, search.
+        // Every interior surface is a faint tint over the theme's one
+        // sheet of glass — square-edged: the silhouette (and its
+        // rounded corners) belongs to the theme alone, and a tint
+        // spilling a few pixels past the arc is invisible where a
+        // second opaque arc would cut a crescent of shadow.
         const ImVec2 toolbar_max { max.x, min.y + 56.0f * s };
-        draw->AddRectFilled(min, toolbar_max, IM_COL32(244, 245, 244, 204));
+        draw->AddRectFilled(min, toolbar_max, IM_COL32(0, 0, 0, 6));
         draw->AddLine({ min.x, toolbar_max.y }, { max.x, toolbar_max.y },
             IM_COL32(70, 73, 71, 35), 1.0f);
         const float toolbar_center_y = (min.y + toolbar_max.y) * 0.5f;
@@ -148,7 +152,7 @@ public:
         const float sidebar_width = 224.0f * s;
         draw->AddRectFilled(content_min,
             { content_min.x + sidebar_width, status_top },
-            IM_COL32(235, 237, 235, 204));
+            IM_COL32(0, 0, 0, 12));
         draw->AddLine({ content_min.x + sidebar_width, content_min.y },
             { content_min.x + sidebar_width, status_top },
             IM_COL32(65, 69, 66, 38), 1.0f);
@@ -187,7 +191,8 @@ public:
         // The file grid.
         const ImVec2 files_min { content_min.x + sidebar_width, content_min.y };
         const ImVec2 files_max { max.x, status_top };
-        draw->AddRectFilled(files_min, files_max, IM_COL32(248, 249, 248, 204));
+        // The file grid sits directly on the glass; no tint needed.
+        (void)files_min;
         text_vcentered(draw, files_min.x + 28.0f * s, files_min.y + 31.0f * s,
             IM_COL32(42, 46, 43, 255),
             kPlaces[static_cast<std::size_t>(sidebar_item_)],
@@ -256,10 +261,11 @@ public:
             ++visible;
         }
 
-        // The status bar closes the window with the body's rounding.
-        draw->AddRectFilled({ min.x, status_top }, max,
-            IM_COL32(243, 244, 243, 204), rounding * s,
-            ImDrawFlags_RoundCornersBottom);
+        // The status bar is a square tint too — an app arc over the
+        // theme's arc never lands on the same pixels, and the sliver
+        // between them shows the shadow as a black notch.
+        (void)rounding;
+        draw->AddRectFilled({ min.x, status_top }, max, IM_COL32(0, 0, 0, 8));
         draw->AddLine({ min.x, status_top }, { max.x, status_top },
             IM_COL32(62, 66, 63, 34), 1.0f);
         char status[64] {};

@@ -290,6 +290,10 @@ void Wm::paint_window(int index)
         // window — skipping it leaves one frame of hollow chrome, a
         // visible blink on the way out.
         ImGui::SetCursorScreenPos({ rmin.x + 1.0f, rmin.y + title_h + 1.0f });
+        // The child must be glass-clear: the imgui theme's ChildBg is
+        // an opaque slab that would sit between the theme's body and
+        // the app's tints, blacking out the window.
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleVar(
             ImGuiStyleVar_WindowPadding, ImVec2(em * 0.9f, em * 0.7f));
         const std::string content = std::string("##os-content-") + w.app->id();
@@ -299,6 +303,7 @@ void Wm::paint_window(int index)
         w.app->draw();
         ImGui::EndChild();
         ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
     }
 
     ImGui::End();

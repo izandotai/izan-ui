@@ -48,15 +48,20 @@ namespace {
             const float rounding = 8.0f * s;
 
             window_shadow(draw, rmin, rmax, rounding, s);
-            // The window carries 0.96 opacity as a whole: the body and
-            // whatever surface the app paints over it stack two layers
-            // of alpha 204 — 1-(1-0.8)^2 = 0.96 — so the wallpaper
-            // breathes through evenly everywhere.
+            // One sheet of glass owns the window's opacity: the body
+            // alone carries alpha 245 (0.96). Every surface an app
+            // paints on top is a faint tint, not a second sheet —
+            // stacked sheets square the transmission away and read as
+            // plain darkening, never as glass.
             draw->AddRectFilled(
-                rmin, rmax, IM_COL32(247, 248, 247, 204), rounding);
+                rmin, rmax, IM_COL32(247, 248, 247, 245), rounding);
 
+            // The title strip is a tint over the glass; same rect and
+            // radius as the body, so its arc lies exactly on the
+            // body's arc — a corner has one silhouette or it shows a
+            // crescent of whatever lies beneath.
             const ImVec2 title_max { rmax.x, rmin.y + title_h };
-            draw->AddRectFilled(rmin, title_max, IM_COL32(232, 234, 232, 204),
+            draw->AddRectFilled(rmin, title_max, IM_COL32(0, 0, 0, 15),
                 rounding, ImDrawFlags_RoundCornersTop);
             draw->AddLine({ rmin.x, title_max.y }, { rmax.x, title_max.y },
                 IM_COL32(69, 73, 70, 45), 1.0f);
