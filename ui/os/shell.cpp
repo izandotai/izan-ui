@@ -40,7 +40,7 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
     // from window input.
     const ImVec2 ws_max { view_max.x, view_max.y - panel_.height(em) };
     wm_.frame(pos, ws_max, panel_.blocked());
-    panel_.frame(wm_, apps_, mark_, pos, view_max);
+    panel_.frame(wm_, apps_, pos, view_max);
 }
 
 }

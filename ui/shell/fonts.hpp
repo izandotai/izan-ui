@@ -45,6 +45,10 @@ struct FontOptions {
 };
 
 std::filesystem::path executable_dir();
+// The Windows accessibility text scale (Settings → Accessibility →
+// Text size), 1.0 elsewhere or when unset. Multiplies the monitor
+// content scale so the shell honors both knobs a user can turn.
+float system_text_scale();
 void load_font(ImGuiIO& io, const FontOptions& options);
 void load_default_font(ImGuiIO& io);
 // Whatever load_font last applied — the IME composition window and

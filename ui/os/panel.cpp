@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <string>
+#include <string_view>
 
 #include <imgui_internal.h>
 
-#include "ui/widgets/design.hpp"
+#include "ui/os/mint_paint.hpp"
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -25,6 +27,8 @@ namespace izan::os {
 
 namespace {
 
+    using namespace mint;
+
     void local_clock_line(char* out, std::size_t size)
     {
 #if defined(_WIN32)
@@ -40,9 +44,9 @@ namespace {
 #endif
     }
 
-    // A borderless, transparent, display-front strip window the
-    // furniture paints into; its buttons capture input over whatever
-    // floats beneath.
+    // A borderless, transparent, display-front window the furniture
+    // paints into; its buttons capture input over whatever floats
+    // beneath.
     void begin_furniture_window(const char* id, ImVec2 min, ImVec2 max)
     {
         ImGui::SetNextWindowPos(min);
@@ -69,12 +73,26 @@ namespace {
         ImGui::PopStyleVar(2);
     }
 
+    bool invisible_hit(const char* id, ImVec2 min, ImVec2 max)
+    {
+        if (max.x <= min.x || max.y <= min.y)
+            return false;
+        ImGui::SetCursorScreenPos(min);
+        return ImGui::InvisibleButton(id, { max.x - min.x, max.y - min.y });
+    }
+
 }
 
-void Panel::frame(Wm& wm, const std::vector<App*>& apps, const char* shell_mark,
-    ImVec2 view_min, ImVec2 view_max)
+float Panel::height(float em) const
+{
+    return em * kPanelHeight / (ui::kDefaultFontSize / ui::kFontDesignScale);
+}
+
+void Panel::frame(
+    Wm& wm, const std::vector<App*>& apps, ImVec2 view_min, ImVec2 view_max)
 {
     const float em = ImGui::GetFontSize();
+    const float s = mint_scale();
     const float bar_h = height(em);
     const ImVec2 bar_min { view_min.x, view_max.y - bar_h };
     const ImVec2 bar_max = view_max;
@@ -91,149 +109,273 @@ void Panel::frame(Wm& wm, const std::vector<App*>& apps, const char* shell_mark,
     draw->AddLine(
         bar_min, { bar_max.x, bar_min.y }, IM_COL32(255, 255, 255, 35), 1.0f);
 
-    const ImU32 fg = IM_COL32(241, 242, 242, 255);
-    const ImU32 fg_dim = IM_COL32(190, 193, 193, 235);
-
-    // ---- left: the launcher button ----
-    const char* menu_label = "Menu";
-    ImGui::PushFont(nullptr, em * 0.9f);
-    const ImVec2 label_size = ImGui::CalcTextSize(menu_label);
-    ImGui::PopFont();
-    const float mark_w = em * 1.05f;
-    const ImVec2 menu_min { bar_min.x + em * 0.3f, bar_min.y + em * 0.22f };
-    const ImVec2 menu_max { menu_min.x + em * 0.9f + mark_w + label_size.x,
-        bar_max.y - em * 0.22f };
+    // ---- left: the Menu button ----
+    const ImVec2 menu_min { bar_min.x + 7.0f * s, bar_min.y + 5.0f * s };
+    const ImVec2 menu_max { bar_min.x + 119.0f * s, bar_max.y - 5.0f * s };
     const bool menu_hot = ImGui::IsMouseHoveringRect(menu_min, menu_max, false);
     if (menu_open_ || menu_hot)
-        draw->AddRectFilled(menu_min, menu_max,
-            IM_COL32(255, 255, 255, menu_open_ ? 34 : 24), em * 0.25f);
-    ImGui::PushFont(nullptr, em * 0.95f);
-    draw->AddText({ menu_min.x + em * 0.3f,
-                      center_y - ImGui::CalcTextSize(shell_mark).y * 0.5f },
-        IM_COL32_WHITE, shell_mark);
-    ImGui::PopFont();
-    ImGui::PushFont(nullptr, em * 0.9f);
-    draw->AddText(
-        { menu_min.x + em * 0.3f + mark_w, center_y - label_size.y * 0.5f }, fg,
-        menu_label);
-    ImGui::PopFont();
-    ImGui::SetCursorScreenPos(menu_min);
-    if (ImGui::InvisibleButton("##panel-menu",
-            { menu_max.x - menu_min.x, menu_max.y - menu_min.y }))
+        draw->AddRectFilled(
+            menu_min, menu_max, IM_COL32(255, 255, 255, 25), 4.0f * s);
+    mint_logo(draw,
+        { menu_min.x + 18.0f * s, (menu_min.y + menu_max.y) * 0.5f },
+        12.0f * s);
+    text_vcentered(draw, menu_min.x + 38.0f * s, center_y,
+        IM_COL32(241, 242, 242, 255), "Menu", kFontWindowTitle * s);
+    if (invisible_hit("##panel-menu", menu_min, menu_max))
         menu_open_ = !menu_open_;
 
-    // ---- middle: one task button per running app ----
-    float x = menu_max.x + em * 0.6f;
-    draw->AddLine({ x, bar_min.y + em * 0.4f }, { x, bar_max.y - em * 0.4f },
+    // ---- quick launchers: one dot per attached app ----
+    static constexpr std::array<ImU32, 4> kLauncherColors = {
+        IM_COL32(89, 155, 213, 255),
+        IM_COL32(234, 156, 54, 255),
+        IM_COL32(63, 164, 113, 255),
+        IM_COL32(114, 190, 77, 255),
+    };
+    static constexpr std::array<const char*, 4> kLauncherGlyphs
+        = { "⌂", "●", ">_", "F" };
+    const int launchers = std::min<int>(4, static_cast<int>(apps.size()));
+    for (int i = 0; i < launchers; ++i) {
+        const ImVec2 center { bar_min.x + (148.0f + i * 42.0f) * s, center_y };
+        draw->AddCircleFilled(
+            center, 14.0f * s, kLauncherColors[static_cast<std::size_t>(i)]);
+        text_centered(draw, center, IM_COL32(255, 255, 255, 255),
+            kLauncherGlyphs[static_cast<std::size_t>(i)], kFontSymbol * s);
+        const std::string id
+            = std::string("##launcher-") + apps[std::size_t(i)]->id();
+        if (invisible_hit(id.c_str(),
+                { center.x - 14.0f * s, center.y - 14.0f * s },
+                { center.x + 14.0f * s, center.y + 14.0f * s }))
+            wm.launch(apps[std::size_t(i)]);
+    }
+
+    draw->AddLine({ bar_min.x + 326.0f * s, bar_min.y + 8.0f * s },
+        { bar_min.x + 326.0f * s, bar_max.y - 8.0f * s },
         IM_COL32(255, 255, 255, 20), 1.0f);
-    x += em * 0.6f;
-    ImGui::PushFont(nullptr, em * 0.88f);
+
+    // ---- middle: one task button per running app ----
+    float x = bar_min.x + 338.0f * s;
     for (App* app : apps) {
         if (!wm.running(app))
             continue;
         const bool min = wm.minimized(app);
-        const bool front = wm.focused() == app;
-        const std::string label = std::string(app->mark()) + " " + app->name();
-        const ImVec2 ts = ImGui::CalcTextSize(label.c_str());
-        const ImVec2 bmin { x, bar_min.y + em * 0.22f };
-        const ImVec2 bmax { x + ts.x + em * 1.0f, bar_max.y - em * 0.22f };
-        const bool hot = ImGui::IsMouseHoveringRect(bmin, bmax, false);
-        const int wash = front ? 36 : (min ? 12 : 20);
-        draw->AddRectFilled(bmin, bmax,
-            IM_COL32(255, 255, 255, hot ? wash + 10 : wash), em * 0.25f);
-        if (front)
-            draw->AddLine({ bmin.x + em * 0.25f, bmax.y - 2.0f },
-                { bmax.x - em * 0.25f, bmax.y - 2.0f },
-                IM_COL32(140, 190, 90, 220), 2.0f);
-        draw->AddText({ bmin.x + em * 0.5f, center_y - ts.y * 0.5f },
-            min ? fg_dim : fg, label.c_str());
-        ImGui::SetCursorScreenPos(bmin);
-        const std::string bid = std::string("##task-") + app->id();
-        if (ImGui::InvisibleButton(
-                bid.c_str(), { bmax.x - bmin.x, bmax.y - bmin.y }))
-            wm.toggle(app);
-        x = bmax.x + em * 0.35f;
-    }
-    ImGui::PopFont();
-
-    // ---- right: the clock ----
-    {
-        char clock[48] {};
-        local_clock_line(clock, sizeof clock);
-        ImGui::PushFont(nullptr, em * 0.85f);
-        const ImVec2 cs = ImGui::CalcTextSize(clock);
-        draw->AddText({ bar_max.x - cs.x - em * 0.6f, center_y - cs.y * 0.5f },
-            fg, clock);
+        const ImVec2 bmin { x, bar_min.y + 5.0f * s };
+        const float mark_font = kFontBodyCompact * s;
+        ImGui::PushFont(nullptr, mark_font);
+        const ImVec2 ms = ImGui::CalcTextSize(app->mark());
+        const ImVec2 ns = ImGui::CalcTextSize(app->name());
         ImGui::PopFont();
+        const ImVec2 bmax { x + 40.0f * s + ns.x + 16.0f * s,
+            bar_max.y - 5.0f * s };
+        draw->AddRectFilled(
+            bmin, bmax, IM_COL32(255, 255, 255, min ? 15 : 28), 4.0f * s);
+        draw->AddText(ImGui::GetFont(), mark_font,
+            { bmin.x + 20.0f * s - ms.x * 0.5f, center_y - ms.y * 0.5f },
+            IM_COL32_WHITE, app->mark());
+        text_vcentered(draw, bmin.x + 40.0f * s, center_y,
+            IM_COL32(237, 239, 238, 255), app->name(), mark_font);
+        const std::string bid = std::string("##task-") + app->id();
+        if (invisible_hit(bid.c_str(), bmin, bmax))
+            wm.toggle(app);
+        x = bmax.x + 10.0f * s;
     }
+
+    // ---- right: clock, then the tray marching left ----
+    char clock[48] {};
+    local_clock_line(clock, sizeof clock);
+    const float clock_font = kFontBodyCompact * s;
+    ImGui::PushFont(nullptr, clock_font);
+    const ImVec2 cs = ImGui::CalcTextSize(clock);
+    ImGui::PopFont();
+    const float clock_x = bar_max.x - 16.0f * s - cs.x;
+    text_vcentered(draw, clock_x, center_y, IM_COL32(241, 242, 242, 255), clock,
+        clock_font);
+    const float tray_right = clock_x - 20.0f * s;
+    const ImU32 tray_ink = IM_COL32(235, 237, 236, 255);
+    wifi_icon(draw, { tray_right - 96.0f * s, center_y + 4.0f * s }, 0.72f * s,
+        tray_ink);
+    const ImVec2 speaker { tray_right - 58.0f * s, center_y };
+    draw->AddTriangleFilled({ speaker.x - 8.0f * s, speaker.y },
+        { speaker.x - 2.0f * s, speaker.y - 6.0f * s },
+        { speaker.x - 2.0f * s, speaker.y + 6.0f * s }, tray_ink);
+    draw->AddRectFilled({ speaker.x - 11.0f * s, speaker.y - 3.0f * s },
+        { speaker.x - 7.0f * s, speaker.y + 3.0f * s }, tray_ink);
+    draw->PathArcTo(
+        { speaker.x - 2.0f * s, speaker.y }, 8.0f * s, -0.75f, 0.75f, 12);
+    draw->PathStroke(tray_ink, 0, 1.5f * s);
+    draw->AddCircle(
+        { tray_right - 22.0f * s, center_y }, 7.0f * s, tray_ink, 20, 1.5f * s);
 
     end_furniture_window();
 
-    // ---- the launcher menu, floating above the button ----
-    if (!menu_open_)
-        return;
-    const float row_h = em * 1.9f;
-    const float pop_w = em * 13.0f;
-    const float pop_h
-        = static_cast<float>(std::max<std::size_t>(apps.size(), 1)) * row_h
-        + em * 0.6f;
-    const ImVec2 pop_min { bar_min.x + em * 0.3f,
-        bar_min.y - pop_h - em * 0.35f };
-    const ImVec2 pop_max { pop_min.x + pop_w, bar_min.y - em * 0.35f };
-    blocked_.push_back({ pop_min, pop_max });
+    if (menu_open_)
+        draw_menu(wm, apps, bar_min, bar_max);
+}
 
-    // A click that lands nowhere on the panel's territory closes the
-    // menu before it can start a drag underneath it.
+void Panel::draw_menu(
+    Wm& wm, const std::vector<App*>& apps, ImVec2 panel_min, ImVec2 panel_max)
+{
+    const float s = mint_scale();
+    const ImVec2 min { panel_min.x + 9.0f * s, panel_min.y - 600.0f * s };
+    const ImVec2 max { min.x + 720.0f * s, panel_min.y - 7.0f * s };
+    blocked_.push_back({ min, max });
+
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
-        && !ImGui::IsMouseHoveringRect(pop_min, pop_max, false)
-        && !ImGui::IsMouseHoveringRect(menu_min, menu_max, false)) {
+        && !ImGui::IsMouseHoveringRect(min, max, false)
+        && mouse.y < panel_min.y) {
         menu_open_ = false;
         return;
     }
 
     begin_furniture_window("###os-panel-popup",
-        { pop_min.x - em, pop_min.y - em }, { pop_max.x + em, bar_min.y });
-    ImDrawList* pop = ImGui::GetWindowDrawList();
+        { min.x - 16.0f * s, min.y - 16.0f * s },
+        { max.x + 16.0f * s, panel_min.y });
+    ImDrawList* draw = ImGui::GetWindowDrawList();
 
-    for (int layer = 5; layer >= 1; --layer) {
-        const float spread = static_cast<float>(layer) * 0.14f * em;
-        pop->AddRectFilled({ pop_min.x - spread, pop_min.y - spread * 0.3f },
-            { pop_max.x + spread, pop_max.y + spread },
-            IM_COL32(0, 0, 0, std::max(1, 40 / (layer * 2))),
-            em * 0.35f + spread);
+    window_shadow(draw, min, max, 8.0f * s, s);
+    draw->AddRectFilled(min, max, IM_COL32(42, 45, 45, 248), 8.0f * s);
+    draw->AddRect(min, max, IM_COL32(255, 255, 255, 38), 8.0f * s, 0, 1.0f);
+
+    // The search field.
+    const ImVec2 search_min { min.x + 18.0f * s, min.y + 17.0f * s };
+    const ImVec2 search_max { max.x - 18.0f * s, min.y + 59.0f * s };
+    draw->AddRectFilled(
+        search_min, search_max, IM_COL32(28, 30, 30, 255), 5.0f * s);
+    draw->AddRect(
+        search_min, search_max, IM_COL32(109, 190, 69, 120), 5.0f * s, 0, 1.0f);
+    ImGui::SetCursorScreenPos(
+        { search_min.x + 10.0f * s, search_min.y + 4.0f * s });
+    ImGui::SetNextItemWidth(search_max.x - search_min.x - 20.0f * s);
+    ImGui::PushFont(nullptr, kFontBody * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 4.0f * s, 3.0f * s });
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(230, 232, 231, 255));
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, IM_COL32(151, 155, 152, 255));
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));
+    ImGui::InputTextWithHint("##cinnamon-search",
+        "Type to search applications…", menu_search_.data(),
+        menu_search_.size());
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
+    ImGui::PopFont();
+
+    // The category column.
+    const float categories_width = 190.0f * s;
+    static constexpr std::array<const char*, 8> kCategories
+        = { "All Applications", "Accessories", "Graphics", "Internet", "Office",
+              "Sound & Video", "System Tools", "Preferences" };
+    for (int i = 0; i < 8; ++i) {
+        const ImVec2 row_min { min.x + 12.0f * s,
+            min.y + (80.0f + i * 50.0f) * s };
+        const ImVec2 row_max { min.x + categories_width,
+            row_min.y + 44.0f * s };
+        const bool hot = ImGui::IsMouseHoveringRect(row_min, row_max, false);
+        if (i == menu_category_ || hot)
+            draw->AddRectFilled(row_min, row_max,
+                i == menu_category_ ? IM_COL32(109, 190, 69, 75)
+                                    : IM_COL32(255, 255, 255, 18),
+                4.0f * s);
+        draw->AddCircleFilled(
+            { row_min.x + 17.0f * s, (row_min.y + row_max.y) * 0.5f }, 6.0f * s,
+            i == menu_category_ ? IM_COL32(109, 190, 69, 255)
+                                : IM_COL32(124, 128, 125, 255));
+        text_vcentered(draw, row_min.x + 34.0f * s,
+            (row_min.y + row_max.y) * 0.5f, IM_COL32(230, 232, 231, 255),
+            kCategories[static_cast<std::size_t>(i)], kFontBodyCompact * s);
+        const std::string cid = "##menu-category-" + std::to_string(i);
+        if (invisible_hit(cid.c_str(), row_min, row_max))
+            menu_category_ = i;
     }
-    pop->AddRectFilled(pop_min, pop_max, IM_COL32(38, 41, 41, 250), em * 0.35f);
-    pop->AddRect(
-        pop_min, pop_max, IM_COL32(255, 255, 255, 40), em * 0.35f, 0, 1.0f);
+    draw->AddLine({ min.x + categories_width + 8.0f * s, min.y + 75.0f * s },
+        { min.x + categories_width + 8.0f * s, max.y - 58.0f * s },
+        IM_COL32(255, 255, 255, 25), 1.0f);
 
-    float y = pop_min.y + em * 0.3f;
-    for (App* app : apps) {
-        const ImVec2 rmin { pop_min.x + em * 0.3f, y };
-        const ImVec2 rmax { pop_max.x - em * 0.3f, y + row_h };
-        const bool hot = ImGui::IsMouseHoveringRect(rmin, rmax, false);
-        if (hot)
-            pop->AddRectFilled(
-                rmin, rmax, IM_COL32(255, 255, 255, 26), em * 0.25f);
-        ImGui::PushFont(nullptr, em * 1.05f);
-        const ImVec2 ms = ImGui::CalcTextSize(app->mark());
-        pop->AddText(
-            { rmin.x + em * 0.35f, (rmin.y + rmax.y) * 0.5f - ms.y * 0.5f },
-            IM_COL32_WHITE, app->mark());
-        ImGui::PopFont();
-        ImGui::PushFont(nullptr, em * 0.92f);
-        const ImVec2 ns = ImGui::CalcTextSize(app->name());
-        pop->AddText(
-            { rmin.x + em * 1.9f, (rmin.y + rmax.y) * 0.5f - ns.y * 0.5f }, fg,
-            app->name());
-        ImGui::PopFont();
-        ImGui::SetCursorScreenPos(rmin);
-        const std::string bid = std::string("##launch-") + app->id();
-        if (ImGui::InvisibleButton(
-                bid.c_str(), { rmax.x - rmin.x, rmax.y - rmin.y })) {
-            wm.launch(app);
-            menu_open_ = false;
+    // The application rows; a row whose launch id matches an attached
+    // app really opens it.
+    struct Row {
+        const char* name;
+        const char* detail;
+        ImU32 color;
+        const char* glyph;
+        const char* launch_id;
+    };
+
+    static constexpr std::array<Row, 8> kRows = { {
+        { "Web Browser", "Browse the web", IM_COL32(77, 149, 209, 255), "●",
+            nullptr },
+        { "Files", "Access and organize files", IM_COL32(109, 190, 69, 255),
+            "F", "files" },
+        { "Terminal", "Use the command line", IM_COL32(55, 58, 57, 255), ">_",
+            nullptr },
+        { "Text Editor", "Edit text files", IM_COL32(79, 155, 115, 255), "●",
+            "notes" },
+        { "Software Manager", "Install new applications",
+            IM_COL32(224, 148, 52, 255), "●", nullptr },
+        { "System Settings", "Control Center", IM_COL32(113, 121, 117, 255),
+            "●", "gallery" },
+        { "Calculator", "Perform calculations", IM_COL32(81, 142, 190, 255),
+            "●", nullptr },
+        { "Media Player", "Play movies and music", IM_COL32(171, 91, 167, 255),
+            "●", nullptr },
+    } };
+    const float apps_x = min.x + categories_width + 28.0f * s;
+    const std::string query(menu_search_.data());
+    int visible = 0;
+    for (int i = 0; i < 8; ++i) {
+        const Row& row = kRows[static_cast<std::size_t>(i)];
+        if (!query.empty()
+            && std::string_view(row.name).find(query) == std::string_view::npos
+            && std::string_view(row.detail).find(query)
+                == std::string_view::npos)
+            continue;
+        const float y = min.y + (82.0f + visible * 55.0f) * s;
+        const ImVec2 app_min { apps_x - 8.0f * s, y - 2.0f * s };
+        const ImVec2 app_max { max.x - 14.0f * s, y + 53.0f * s };
+        const bool hot = ImGui::IsMouseHoveringRect(app_min, app_max, false);
+        if (hot || menu_app_ == i)
+            draw->AddRectFilled(app_min, app_max,
+                menu_app_ == i ? IM_COL32(109, 190, 69, 48)
+                               : IM_COL32(255, 255, 255, 15),
+                5.0f * s);
+        draw->AddRectFilled({ apps_x, y + 7.0f * s },
+            { apps_x + 38.0f * s, y + 45.0f * s }, row.color, 8.0f * s);
+        text_centered(draw, { apps_x + 19.0f * s, y + 26.0f * s },
+            IM_COL32(255, 255, 255, 255), row.glyph, kFontSymbol * s);
+        text_vcentered(draw, apps_x + 51.0f * s, y + 13.0f * s,
+            IM_COL32(239, 241, 240, 255), row.name, kFontBodyCompact * s);
+        text_vcentered(draw, apps_x + 51.0f * s, y + 39.0f * s,
+            IM_COL32(147, 151, 148, 255), row.detail, kFontSecondary * s);
+        const std::string rid = "##menu-app-" + std::to_string(i);
+        if (invisible_hit(rid.c_str(), app_min, app_max)) {
+            menu_app_ = i;
+            if (row.launch_id != nullptr) {
+                for (App* app : apps) {
+                    if (std::strcmp(app->id(), row.launch_id) == 0) {
+                        wm.launch(app);
+                        menu_open_ = false;
+                        break;
+                    }
+                }
+            }
         }
-        y += row_h;
+        ++visible;
+    }
+
+    // The session footer.
+    draw->AddLine({ min.x + 12.0f * s, max.y - 53.0f * s },
+        { max.x - 12.0f * s, max.y - 53.0f * s }, IM_COL32(255, 255, 255, 28),
+        1.0f);
+    mint_logo(draw, { min.x + 31.0f * s, max.y - 28.0f * s }, 13.0f * s);
+    text_at(draw, { min.x + 52.0f * s, max.y - 39.0f * s },
+        IM_COL32(237, 239, 238, 255), "dean", kFontBody * s);
+    static constexpr std::array<const char*, 3> kSession = { "S", "L", "P" };
+    for (int i = 0; i < 3; ++i) {
+        const ImVec2 center { max.x - (118.0f - i * 42.0f) * s,
+            max.y - 27.0f * s };
+        draw->AddCircle(
+            center, 12.0f * s, IM_COL32(202, 205, 203, 255), 24, 1.3f * s);
+        text_centered(draw, center, IM_COL32(225, 227, 226, 255),
+            kSession[static_cast<std::size_t>(i)], kFontSymbolSmall * s);
     }
 
     end_furniture_window();

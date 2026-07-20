@@ -13,6 +13,25 @@
 
 namespace izan::ui {
 
+float system_text_scale()
+{
+#ifdef _WIN32
+    DWORD percent = 100;
+    DWORD size = sizeof(percent);
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Accessibility",
+            L"TextScaleFactor", RRF_RT_REG_DWORD, nullptr, &percent, &size)
+        != ERROR_SUCCESS)
+        return 1.0f;
+    if (percent < 100)
+        percent = 100;
+    if (percent > 225)
+        percent = 225;
+    return static_cast<float>(percent) / 100.0f;
+#else
+    return 1.0f;
+#endif
+}
+
 namespace {
 
     // U+FE0E/U+FE0F (variation selectors) and U+200D (the joiner) are
@@ -172,11 +191,9 @@ void load_font(ImGuiIO& io, const FontOptions& options)
         // candidate file is auditioned before it earns a place in the
         // waterfall); unset, the system face stands.
         const char* emoji_env = std::getenv("IZAN_EMOJI_FONT");
-        const char* emoji_pick = emoji_env && *emoji_env
-            ? emoji_env
-            : options.emoji_path;
-        const std::filesystem::path emoji_path
-            = emoji_pick ? emoji_pick : "";
+        const char* emoji_pick
+            = emoji_env && *emoji_env ? emoji_env : options.emoji_path;
+        const std::filesystem::path emoji_path = emoji_pick ? emoji_pick : "";
         if (!emoji_path.empty() && std::filesystem::exists(emoji_path)) {
             ImFontConfig emoji_config;
             emoji_config.MergeMode = true;
@@ -215,8 +232,7 @@ void load_font(ImGuiIO& io, const FontOptions& options)
     }
 
     io.Fonts->AddFontDefault();
-    std::fprintf(
-        stderr, "Failed to load UI font: %s\n", options.primary_path);
+    std::fprintf(stderr, "Failed to load UI font: %s\n", options.primary_path);
 }
 
 void load_default_font(ImGuiIO& io)

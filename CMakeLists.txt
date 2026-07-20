@@ -142,6 +142,7 @@ endfunction()
 # new implementation, the kernel untouched.
 if(IZAN_UI_SHELL)
     add_library(izan_os STATIC
+        ui/os/mint_paint.cpp
         ui/os/panel.cpp
         ui/os/shell.cpp
         ui/os/theme_mint.cpp

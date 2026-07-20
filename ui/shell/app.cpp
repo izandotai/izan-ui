@@ -93,16 +93,17 @@ bool GlfwApp::init(const AppOptions& options)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // The host speaks design sizes (authored at kFontDesignScale);
-    // the shell converts to this monitor's pixels so the typeface
-    // keeps one physical look across Windows scale settings.
+    // the shell converts to this machine's pixels — monitor DPI scale
+    // times the Windows accessibility text scale — so the typeface
+    // keeps one physical look across user setups.
     FontOptions fonts = options.fonts;
     float content_scale_x = 1.0f;
     float content_scale_y = 1.0f;
     glfwGetWindowContentScale(window_, &content_scale_x, &content_scale_y);
-    fonts.size = fonts.size * content_scale_x / kFontDesignScale;
+    const float ui_scale = content_scale_x * system_text_scale();
+    fonts.size = fonts.size * ui_scale / kFontDesignScale;
     if (fonts.rasterizer_density <= 0.0f)
-        fonts.rasterizer_density
-            = content_scale_x > 1.0f ? content_scale_x : 1.0f;
+        fonts.rasterizer_density = ui_scale > 1.0f ? ui_scale : 1.0f;
     load_font(io, fonts);
     apply_style();
     ImGuiStyle& aa = ImGui::GetStyle();
