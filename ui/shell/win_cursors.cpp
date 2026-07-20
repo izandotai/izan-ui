@@ -250,6 +250,14 @@ void apply_custom_cursor()
 {
     if (!g_active || ImGui::GetCurrentContext() == nullptr)
         return;
+    // While imgui draws the cursor itself (window drags), the hardware
+    // cursor must vanish or the user sees two arrows. This module owns
+    // shape control (NoMouseCursorChange), so the backend won't hide
+    // it for us — and this path also serves WM_SETCURSOR's HTCLIENT.
+    if (ImGui::GetIO().MouseDrawCursor) {
+        apply_custom_cursor_slot(ImGuiMouseCursor_None);
+        return;
+    }
 #ifdef _WIN32
     // Only override while the mouse is truly in the client area. The
     // borders and caption belong to WM_SETCURSOR — otherwise the render

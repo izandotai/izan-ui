@@ -15,7 +15,11 @@
 
 #ifdef _WIN32
 #include <windows.h>
+
+#include <dwmapi.h>
 #endif
+
+#include <cstdlib>
 
 namespace izan::ui {
 
@@ -71,10 +75,21 @@ bool GlfwApp::init(const AppOptions& options)
     }
 
     glfwMakeContextCurrent(window_);
-    // Plain vsync: adaptive (-1) was tried and TEARS by design when a
-    // frame is late - a borderless window on independent flip shows
-    // it. DWM-synced swap is how native windows stay tear-free.
-    glfwSwapInterval(1);
+    // Two present modes. Classic: plain vsync — adaptive (-1) was
+    // tried and TEARS by design when a frame is late; a borderless
+    // window on independent flip shows it. Low-latency: vsync off,
+    // paced by DwmFlush in end_frame — WGL queues 2-3 frames behind
+    // a vsynced swap, which is exactly the lag that makes an inner
+    // window trail the hardware cursor on drag. DwmFlush keeps the
+    // loop locked to the compositor so the queue never forms and the
+    // presented frame is at most one composition old.
+#ifdef _WIN32
+    low_latency_ = options.low_latency_present
+        && std::getenv("IZAN_CLASSIC_PRESENT") == nullptr;
+#else
+    low_latency_ = false; // DwmFlush pacing is a Windows affair
+#endif
+    glfwSwapInterval(low_latency_ ? 0 : 1);
 #ifndef GL_MULTISAMPLE
 #define GL_MULTISAMPLE 0x809D
 #endif
@@ -203,6 +218,19 @@ void GlfwApp::end_frame(const ImVec4& clear_color) const
     apply_custom_cursor();
 
     glfwSwapBuffers(window_);
+
+#ifdef _WIN32
+    if (low_latency_) {
+        // Wait out the composition this frame rides in. The next
+        // input poll then lands right after the compositor's beat,
+        // and the frame built from it is the freshest material DWM
+        // can pick up — nanogui's trick, minus its tearing exposure.
+        if (FAILED(DwmFlush())) {
+            low_latency_ = false;
+            glfwSwapInterval(1);
+        }
+    }
+#endif
 }
 
 void GlfwApp::shutdown()

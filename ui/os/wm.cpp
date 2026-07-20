@@ -1,6 +1,7 @@
 #include "ui/os/wm.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <string>
 
 #include <imgui_internal.h>
@@ -197,6 +198,16 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
             break; // the topmost hit consumes the click
         }
     }
+
+    // While a window is in hand the cursor is drawn by imgui, in the
+    // same frame as the chrome it drags: window and cursor move as
+    // one set of pixels and can never slip apart, which is most of
+    // what makes a native title-bar drag read as effortless. The
+    // hardware cursor comes back the moment the button lifts.
+    // IZAN_OS_HW_CURSOR_DRAG=1 keeps the hardware cursor throughout.
+    static const bool soft_drag_cursor
+        = std::getenv("IZAN_OS_HW_CURSOR_DRAG") == nullptr;
+    io.MouseDrawCursor = soft_drag_cursor && (drag_ >= 0 || resize_ >= 0);
 
     // The one window allowed to show hover: the topmost under the
     // cursor, and only while nothing is being dragged or resized —

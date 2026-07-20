@@ -26,6 +26,12 @@ struct AppOptions {
     // rate on any input - the battery-friendly mode for a desktop
     // that sits open all day.
     bool lazy_redraw = false;
+    // Present with vsync off, paced by DwmFlush: the frame lands in
+    // the very next composition instead of queueing 2-3 deep behind
+    // the swap chain — the difference between an inner window trailing
+    // the cursor and sticking to it. IZAN_CLASSIC_PRESENT=1 falls back
+    // to plain vsync at runtime; non-Windows always uses vsync.
+    bool low_latency_present = true;
     // The host's typeface; the defaults reproduce the izan look.
     FontOptions fonts {};
 };
@@ -68,6 +74,9 @@ private:
     GLFWwindow* window_ = nullptr;
     bool initialized_ = false;
     bool lazy_ = false;
+    // mutable: end_frame is const but must drop to vsync if DwmFlush
+    // ever fails (composition off — remote sessions, exotic setups).
+    mutable bool low_latency_ = false;
     std::function<void()> render_;
 };
 
