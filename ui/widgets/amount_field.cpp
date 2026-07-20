@@ -95,6 +95,12 @@ namespace {
                 }
                 ++i;
             }
+            // "001" is a typo the parser downstream trips over: strip
+            // leading zeros while a digit follows, so "0" and "0.5"
+            // stand untouched.
+            while (data->BufTextLen >= 2 && data->Buf[0] == '0'
+                && data->Buf[1] >= '0' && data->Buf[1] <= '9')
+                data->DeleteChars(0, 1);
             st.shadow.assign(data->Buf, std::size_t(data->BufTextLen));
         }
         return 0;
