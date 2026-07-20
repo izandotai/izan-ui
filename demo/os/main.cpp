@@ -410,9 +410,9 @@ void draw_mint_host_frame(GLFWwindow* window)
         IM_COL32(231, 233, 234, 255), "izan OS · Cinnamon 测试皮肤",
         kFontWindowTitle * s);
 
-    // IZAN_OS_STATS=1: the frame clock on the bar, so a performance
-    // argument is settled by numbers instead of feel.
-    if (std::getenv("IZAN_OS_STATS") != nullptr) {
+    // The frame clock rides the bar, always: a performance argument
+    // is settled by numbers instead of feel.
+    {
         char stats[64] {};
         const ImGuiIO& io = ImGui::GetIO();
         std::snprintf(stats, sizeof stats, "%.1f fps · %.2f ms", io.Framerate,
