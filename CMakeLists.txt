@@ -143,4 +143,17 @@ if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
     target_link_libraries(
         izan_ui_smoke PRIVATE izan_ui_shell izan_kit glaze::glaze)
     izan_ui_copy_assets(izan_ui_smoke)
+
+    # A macOS desktop drawn stroke by stroke with ImDrawList — no
+    # screenshots, no textures. What the raw draw layer can carry:
+    # wallpaper, menu bar, Finder, Dock, control center, all live.
+    # Rides izan_imgui alone (its own tiny GLFW main, no shell) so
+    # the replica stays 1:1. --screenshot <file.bmp> for a headless
+    # capture.
+    add_executable(izan_ui_macos_demo
+        demo/macos/main.cpp
+        demo/macos/macos_desktop.cpp
+    )
+    target_link_libraries(izan_ui_macos_demo PRIVATE izan_imgui)
+    izan_ui_copy_assets(izan_ui_macos_demo)
 endif()
