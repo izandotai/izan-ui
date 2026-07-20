@@ -516,9 +516,10 @@ int main(int argc, char** argv)
         return 1;
     ui::set_window_icon_resource(app.window(), 1);
 
+    // The host window stays fully opaque: translucency belongs to
+    // the components inside (panel, menus), never the whole frame.
     ui::ChromeState chrome;
     ui::apply_theme_style_only(chrome.theme_index);
-    glfwSetWindowOpacity(app.window(), chrome.window_opacity);
 
     FilesApp files;
     NotesApp notes;

@@ -160,7 +160,12 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
         && std::none_of(blocked.begin(), blocked.end(),
             [&](const OsRect& r) { return r.contains(io.MousePos); })) {
         for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
-            WindowState& w = windows_[static_cast<std::size_t>(*it)];
+            // raise() rewrites z_, which this loop is walking — the
+            // index must be taken off the iterator before that, or a
+            // background hit reads a shifted slot and grabs the wrong
+            // window.
+            const int index = *it;
+            WindowState& w = windows_[static_cast<std::size_t>(index)];
             if (!w.open || w.minimized)
                 continue;
             const ImVec2 rmin = w.maximized ? ws_min : w.pos;
@@ -169,7 +174,7 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
                 : ImVec2 { w.pos.x + w.size.x, w.pos.y + w.size.y };
             if (!inside(io.MousePos, rmin, rmax))
                 continue;
-            raise(*it);
+            raise(index);
             bool on_control = false;
             for (int c = 0; c < 3; ++c)
                 if (look.control_rect(
@@ -180,12 +185,12 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
                 && io.MousePos.x > rmax.x - em * 1.2f
                 && io.MousePos.y > rmax.y - em * 1.2f;
             if (in_grip) {
-                resize_ = *it;
+                resize_ = index;
                 grab_size_ = w.size;
                 grab_mouse_ = io.MousePos;
             } else if (!w.maximized && !on_control
                 && io.MousePos.y < rmin.y + title_h) {
-                drag_ = *it;
+                drag_ = index;
                 grab_offset_
                     = { io.MousePos.x - w.pos.x, io.MousePos.y - w.pos.y };
             }
@@ -225,19 +230,23 @@ void Wm::paint_window(int index)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0));
+    // NoBringToFrontOnFocus: a click must not let imgui hoist the
+    // window above the panel for a frame — the kernel re-asserts the
+    // whole display order below, every window, every frame.
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
         | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
-        | ImGuiWindowFlags_NoDocking;
+        | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBringToFrontOnFocus;
     const std::string name = std::string("###os-window-") + w.app->id();
     ImGui::Begin(name.c_str(), nullptr, flags);
     if (w.spawn_focus) {
         ImGui::SetWindowFocus();
         w.spawn_focus = false;
     }
-    if (focused_win)
-        ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+    // Painted bottom -> top: fronting each window in turn leaves the
+    // display order exactly the kernel's z order.
+    ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 
     WindowLook wl;
     wl.app = w.app;
