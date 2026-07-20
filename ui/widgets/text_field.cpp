@@ -66,45 +66,18 @@ namespace {
                 ImGui::GetColorU32(ImVec4(1, 1, 1, dark ? 0.07f : 0.55f)),
                 r + 0.5f, 0, 1.5f);
         });
-        // The rim: brushed chrome. One ring stroke per horizontal
-        // band, the color walking a vertical ramp — polished bright
-        // along the top edge, falling dark through the waist, a
-        // second glint across the base. The band seams vanish into
-        // the ramp; the eye reads one machined bezel.
-        auto metal = [&](float t) {
-            struct Stop {
-                float t, l;
-            };
-            static constexpr Stop ramp[] = { { 0.00f, 0.92f },
-                { 0.15f, 0.55f }, { 0.40f, 0.28f }, { 0.65f, 0.34f },
-                { 0.85f, 0.60f }, { 1.00f, 0.88f } };
-            float l = ramp[0].l;
-            for (std::size_t k = 1; k < sizeof(ramp) / sizeof(ramp[0]); ++k) {
-                if (t <= ramp[k].t) {
-                    const float f
-                        = (t - ramp[k - 1].t) / (ramp[k].t - ramp[k - 1].t);
-                    l = ramp[k - 1].l + (ramp[k].l - ramp[k - 1].l) * f;
-                    break;
-                }
-                l = ramp[k].l;
-            }
-            if (!dark)
-                l = l * 0.80f + 0.05f; // gentler chrome on a light panel
-            const float b = l * 1.06f;
-            return ImVec4(l * 0.97f, l, b > 1.0f ? 1.0f : b, 1.0f);
-        };
-        const int bands = 12;
-        const float ring_top = min.y - 1.5f;
-        const float ring_h = h + 3.0f;
-        for (int i = 0; i < bands; ++i) {
-            const float t0 = float(i) / float(bands);
-            const float t1 = float(i + 1) / float(bands);
-            draw->PushClipRect(ImVec2(min.x - 4.0f, ring_top + ring_h * t0),
-                ImVec2(max.x + 4.0f, ring_top + ring_h * t1), true);
+        // The rim, darker across the top — the opposite hand of the
+        // button's rim, same light. A 1px hairline breaks up on the
+        // rounded corners (anti-aliased arcs thin it to nothing); two
+        // pixels keep the ring closed all the way round.
+        draw->AddRect(min, max,
+            ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Separator)), r,
+            0, 2.0f);
+        clipped(min.y, min.y + h * 0.5f, [&] {
             draw->AddRect(min, max,
-                ImGui::GetColorU32(metal((t0 + t1) * 0.5f)), r, 0, 2.0f);
-            draw->PopClipRect();
-        }
+                ImGui::GetColorU32(ImVec4(0, 0, 0, dark ? 0.32f : 0.16f)), r, 0,
+                2.0f);
+        });
 
         if (focused) {
             ImVec4 halo = kit_accent();
