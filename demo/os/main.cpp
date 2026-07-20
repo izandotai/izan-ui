@@ -13,6 +13,8 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include <backends/imgui_impl_opengl3.h>
+
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -455,6 +457,118 @@ void draw_mint_host_frame(GLFWwindow* window)
         IM_COL32(255, 255, 255, 38), maximized ? 0.0f : 9.0f * s, 0, 1.0f);
 }
 
+// ---- the wallpaper cache: the theme's painter runs once per size
+// into a texture; every frame after that is a single blit ----
+
+typedef unsigned int GLuint_t;
+
+class WallpaperCache {
+public:
+    ImTextureID texture(const os::Theme& theme, ImVec2 size, float em)
+    {
+        const int w = static_cast<int>(size.x);
+        const int h = static_cast<int>(size.y);
+        // The font atlas texture only truly exists after the first
+        // full frame has rendered; a bake before that samples black.
+        if (w <= 0 || h <= 0 || attempts_ > 8 || ImGui::GetFrameCount() < 2)
+            return 0;
+        if (baked_ && w == w_ && h == h_)
+            return static_cast<ImTextureID>(tex_);
+        ++attempts_;
+        bake(theme, w, h, em);
+        // A failed bake falls back to live painting and tries again
+        // next frame — a black wallpaper is never an option.
+        return baked_ ? static_cast<ImTextureID>(tex_) : 0;
+    }
+
+private:
+    void bake(const os::Theme& theme, int w, int h, float em)
+    {
+        typedef void(APIENTRY * GenFramebuffers)(int, GLuint_t*);
+        typedef void(APIENTRY * BindFramebuffer)(unsigned, GLuint_t);
+        typedef void(APIENTRY * FramebufferTexture2D)(
+            unsigned, unsigned, unsigned, GLuint_t, int);
+        typedef unsigned(APIENTRY * CheckFramebufferStatus)(unsigned);
+        static const auto gen_fbo = reinterpret_cast<GenFramebuffers>(
+            glfwGetProcAddress("glGenFramebuffers"));
+        static const auto bind_fbo = reinterpret_cast<BindFramebuffer>(
+            glfwGetProcAddress("glBindFramebuffer"));
+        static const auto fbo_tex2d = reinterpret_cast<FramebufferTexture2D>(
+            glfwGetProcAddress("glFramebufferTexture2D"));
+        static const auto fbo_status = reinterpret_cast<CheckFramebufferStatus>(
+            glfwGetProcAddress("glCheckFramebufferStatus"));
+        if (!gen_fbo || !bind_fbo || !fbo_tex2d || !fbo_status)
+            return; // no FBO support: the shell keeps painting live
+
+        constexpr unsigned kFramebuffer = 0x8D40; // GL_FRAMEBUFFER
+        constexpr unsigned kColor0 = 0x8CE0;      // GL_COLOR_ATTACHMENT0
+        constexpr unsigned kComplete = 0x8CD5;    // _COMPLETE
+        constexpr unsigned kRgba8 = 0x8058;       // GL_RGBA8
+        if (tex_ == 0)
+            glGenTextures(1, &tex_);
+        glBindTexture(GL_TEXTURE_2D, tex_);
+        glTexImage2D(GL_TEXTURE_2D, 0, kRgba8, w, h, 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        if (fbo_ == 0)
+            gen_fbo(1, &fbo_);
+        bind_fbo(kFramebuffer, fbo_);
+        fbo_tex2d(kFramebuffer, kColor0, GL_TEXTURE_2D, tex_, 0);
+        int bound = -1;
+        glGetIntegerv(0x8CA6 /* GL_FRAMEBUFFER_BINDING */, &bound);
+        if (static_cast<GLuint_t>(bound) != fbo_
+            || fbo_status(kFramebuffer) != kComplete) {
+            bind_fbo(kFramebuffer, 0);
+            return;
+        }
+        glDisable(GL_SCISSOR_TEST);
+        glViewport(0, 0, w, h);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // One throwaway draw list, rendered by the regular backend
+        // into the bound framebuffer.
+        ImDrawList list(ImGui::GetDrawListSharedData());
+        list._ResetForNewFrame();
+        list.PushClipRect({ 0.0f, 0.0f },
+            { static_cast<float>(w), static_cast<float>(h) }, false);
+        list.PushTexture(ImGui::GetIO().Fonts->TexRef);
+        theme.paint_wallpaper(&list, { 0.0f, 0.0f },
+            { static_cast<float>(w), static_cast<float>(h) }, em);
+        list.PopTexture();
+        list.PopClipRect();
+
+        ImDrawData data;
+        data.Valid = true;
+        // The backend creates and updates atlas textures off this
+        // list; without it a first-frame bake samples a texture that
+        // does not exist yet and comes out black.
+        data.Textures = &ImGui::GetPlatformIO().Textures;
+        data.CmdLists.push_back(&list);
+        data.CmdListsCount = 1;
+        data.TotalVtxCount = list.VtxBuffer.Size;
+        data.TotalIdxCount = list.IdxBuffer.Size;
+        data.DisplayPos = { 0.0f, 0.0f };
+        data.DisplaySize = { static_cast<float>(w), static_cast<float>(h) };
+        data.FramebufferScale = { 1.0f, 1.0f };
+        ImGui_ImplOpenGL3_RenderDrawData(&data);
+        data.CmdLists.clear(); // the list is stack-owned, not the data's
+
+        bind_fbo(kFramebuffer, 0);
+        w_ = w;
+        h_ = h;
+        baked_ = true;
+    }
+
+    GLuint_t tex_ = 0;
+    GLuint_t fbo_ = 0;
+    int w_ = 0;
+    int h_ = 0;
+    int attempts_ = 0;
+    bool baked_ = false;
+};
+
 // ---- headless capture ----
 
 #pragma pack(push, 1)
@@ -547,6 +661,7 @@ int main(int argc, char** argv)
     shell.attach(&notes);
     shell.attach(&gallery);
     shell.wm().launch(&files);
+    WallpaperCache wallpaper;
 
     int rendered_frames = 0;
     app.set_render_callback([&] {
@@ -557,8 +672,10 @@ int main(int argc, char** argv)
 
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float bar_h = kFrameHeight * mint_scale();
-        shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h),
-            ImVec2(vp->Size.x, vp->Size.y - bar_h));
+        const ImVec2 desk_size(vp->Size.x, vp->Size.y - bar_h);
+        shell.set_wallpaper(wallpaper.texture(
+            os::mint_theme(), desk_size, ImGui::GetFontSize()));
+        shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h), desk_size);
         draw_mint_host_frame(app.window());
 
         app.end_frame(ImVec4(0.08f, 0.16f, 0.15f, 1.0f));

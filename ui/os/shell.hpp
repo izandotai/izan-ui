@@ -29,6 +29,17 @@ public:
         mark_ = mark;
     }
 
+    // A pre-baked wallpaper: when set, the shell blits this texture
+    // instead of running the theme's painter every frame. The UVs
+    // default to a GL render-target's row order (bottom-up).
+    void set_wallpaper(ImTextureID texture, ImVec2 uv0 = { 0.0f, 1.0f },
+        ImVec2 uv1 = { 1.0f, 0.0f })
+    {
+        wallpaper_ = texture;
+        wallpaper_uv0_ = uv0;
+        wallpaper_uv1_ = uv1;
+    }
+
     void frame(ImVec2 pos, ImVec2 size);
 
     Wm& wm()
@@ -41,6 +52,9 @@ private:
     Wm wm_;
     Panel panel_;
     const char* mark_ = "⛩️";
+    ImTextureID wallpaper_ = 0;
+    ImVec2 wallpaper_uv0_ { 0.0f, 1.0f };
+    ImVec2 wallpaper_uv1_ { 1.0f, 0.0f };
 };
 
 }

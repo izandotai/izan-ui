@@ -44,9 +44,10 @@ bool GlfwApp::init(const AppOptions& options)
     glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    // 8x MSAA plus geometric AA below: the staircase on slanted lines
-    // is the disease, texture AA blurs them, this pairing does not.
-    glfwWindowHint(GLFW_SAMPLES, 8);
+    // No MSAA by default: imgui anti-aliases its own geometry, and a
+    // multisampled framebuffer only taxes fill rate and swap latency.
+    // A host that wants hardware samples asks via options.
+    glfwWindowHint(GLFW_SAMPLES, options.msaa_samples);
 
     window_ = glfwCreateWindow(
         options.width, options.height, options.title, nullptr, nullptr);
@@ -69,11 +70,16 @@ bool GlfwApp::init(const AppOptions& options)
     }
 
     glfwMakeContextCurrent(window_);
-    glfwSwapInterval(1);
+    // Adaptive vsync where the driver offers it (nanogui's trick): a
+    // late frame tears through instead of stalling a whole vblank,
+    // which is most of the difference between "synced" and "silky".
+    glfwSwapInterval(
+        glfwExtensionSupported("WGL_EXT_swap_control_tear") ? -1 : 1);
 #ifndef GL_MULTISAMPLE
 #define GL_MULTISAMPLE 0x809D
 #endif
-    glEnable(GL_MULTISAMPLE); // some drivers ship with MSAA off
+    if (options.msaa_samples > 0)
+        glEnable(GL_MULTISAMPLE); // some drivers ship with MSAA off
     install_custom_window_chrome(window_);
     // Centering must follow the chrome install: before it the
     // non-client area has not collapsed yet and the math lands the
@@ -108,8 +114,11 @@ bool GlfwApp::init(const AppOptions& options)
     apply_style();
     ImGuiStyle& aa = ImGui::GetStyle();
     aa.AntiAliasedLines = true;
-    aa.AntiAliasedLinesUseTex = false;
+    aa.AntiAliasedLinesUseTex = true;
     aa.AntiAliasedFill = true;
+    // Finer arc tessellation: rounded corners live or die by this —
+    // at the default 0.30 a 12px radius shows its polygon.
+    aa.CircleTessellationMaxError = 0.10f;
     // Custom cursors from assets/cursors beside the exe; absent files
     // silently keep the system cursors.
     install_custom_cursors(executable_dir() / "assets" / "cursors");

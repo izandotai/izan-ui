@@ -29,7 +29,11 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
             | ImGuiWindowFlags_NoFocusOnAppearing);
     ImDrawList* draw = ImGui::GetWindowDrawList();
     draw->PushClipRect(pos, view_max, true);
-    wm_.theme().paint_wallpaper(draw, pos, view_max, em);
+    if (wallpaper_ != 0)
+        draw->AddImage(
+            wallpaper_, pos, view_max, wallpaper_uv0_, wallpaper_uv1_);
+    else
+        wm_.theme().paint_wallpaper(draw, pos, view_max, em);
     draw->PopClipRect();
     ImGui::End();
     ImGui::PopStyleColor();

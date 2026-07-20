@@ -19,6 +19,9 @@ struct AppOptions {
     int width = 1280;
     int height = 800;
     bool attach_parent_console = true;
+    // Hardware multisampling; 0 leans on imgui's own geometry AA,
+    // which is cheaper and just as clean for 2D chrome.
+    int msaa_samples = 0;
     // The host's typeface; the defaults reproduce the izan look.
     FontOptions fonts {};
 };
