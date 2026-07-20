@@ -37,6 +37,11 @@ public:
     // focused minimizes, anything else comes to the front.
     void toggle(App* app);
 
+    // Shut an app's window from outside — the uninstall path: same
+    // effect as its close button, plus any launch still waiting for
+    // the first frame is withdrawn.
+    void close(App* app);
+
     void set_theme(const Theme* theme)
     {
         theme_ = theme;

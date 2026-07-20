@@ -1,11 +1,23 @@
 #include "ui/os/shell.hpp"
 
+#include <algorithm>
+
 namespace izan::os {
 
 void Shell::attach(App* app)
 {
+    if (std::find(apps_.begin(), apps_.end(), app) != apps_.end())
+        return;
     apps_.push_back(app);
     wm_.attach(app);
+}
+
+void Shell::detach(App* app)
+{
+    wm_.close(app);
+    const auto it = std::find(apps_.begin(), apps_.end(), app);
+    if (it != apps_.end())
+        apps_.erase(it);
 }
 
 void Shell::frame(ImVec2 pos, ImVec2 size)

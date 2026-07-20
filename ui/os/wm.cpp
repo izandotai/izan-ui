@@ -79,6 +79,28 @@ void Wm::toggle(App* app)
     raise(index);
 }
 
+void Wm::close(App* app)
+{
+    const auto queued = std::find(pending_.begin(), pending_.end(), app);
+    if (queued != pending_.end())
+        pending_.erase(queued);
+    const int index = index_of(app);
+    if (index < 0)
+        return;
+    WindowState& w = windows_[static_cast<std::size_t>(index)];
+    if (!w.open)
+        return;
+    w.open = false;
+    w.minimized = false;
+    const auto it = std::find(z_.begin(), z_.end(), index);
+    if (it != z_.end())
+        z_.erase(it);
+    if (drag_ == index)
+        drag_ = -1;
+    if (resize_ == index)
+        resize_ = -1;
+}
+
 int Wm::index_of(const App* app) const
 {
     for (std::size_t i = 0; i < windows_.size(); ++i)

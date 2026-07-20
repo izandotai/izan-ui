@@ -18,6 +18,10 @@ class Shell {
 public:
     void attach(App* app);
 
+    // The uninstall half of the registry: the window shuts and the
+    // app leaves the launcher roster. The object stays with the host.
+    void detach(App* app);
+
     void set_theme(const Theme* theme)
     {
         wm_.set_theme(theme);
