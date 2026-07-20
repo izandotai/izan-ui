@@ -71,6 +71,9 @@ namespace {
         // panel). NoBackground on the window flags does the same job
         // outside the style stack's reach.
         g_panel_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+        // Opaque, always: the theme's 0.98 let the page bleed through
+        // and dirtied the edge (same four-layer verdict).
+        g_panel_bg.w = 1.0f;
     }
 
     void pop_dialog_style()

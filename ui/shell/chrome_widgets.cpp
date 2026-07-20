@@ -39,7 +39,7 @@ namespace {
         // with a wide, dropped umbra the way macOS alerts do.
         (void)blockers; // popups painted above cover their own patch
         render::SdfRect shadow;
-        const float drop = modal ? 4.0f : 1.0f;
+        const float drop = modal ? 3.0f : 1.0f;
         shadow.min = ImVec2(rect.Min.x, rect.Min.y + drop);
         shadow.max = ImVec2(rect.Max.x, rect.Max.y + drop);
         // The WINDOW'S OWN rounding, not the style's: kit dialogs push a
@@ -48,7 +48,7 @@ namespace {
         shadow.radius[0] = shadow.radius[1] = shadow.radius[2]
             = shadow.radius[3] = rounding;
         shadow.fill = theme_popup_shadow_color(app, modal ? 0.26f : 0.16f);
-        shadow.soft_px = modal ? 26.0f : 11.0f;
+        shadow.soft_px = modal ? 16.0f : 11.0f;
         render::sdf_rect(draw_list, shadow);
     }
 

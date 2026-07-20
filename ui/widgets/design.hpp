@@ -30,7 +30,9 @@ struct DesignLanguage {
     float group_pad_y = 0.45f;
 
     // -- shape --
-    float dialog_radius = 0.45f;    // the dialog window's corners
+    float dialog_radius = 0.75f;    // the dialog window corners — 0.45
+                                    // read near-square on a 480px panel
+                                    // (2026-07-20 four-layer verdict)
     float selection_radius = 0.35f; // rounded selection highlights
     float avatar_radius = 0.28f;    // × avatar size (squircle)
     // The input well: the button's recessed twin. Generous corners and
