@@ -64,6 +64,7 @@ if(IZAN_UI_SHELL)
 add_library(izan_ui_shell STATIC
     ui/shell/app.cpp
     ui/shell/chrome_widgets.cpp
+    ui/shell/cursor_paint.cpp
     ui/shell/fonts.cpp
     ui/shell/ime.cpp
     ui/shell/theme.cpp
@@ -75,6 +76,11 @@ add_library(izan_ui_shell STATIC
 add_library(izan::ui_shell ALIAS izan_ui_shell)
 target_include_directories(izan_ui_shell PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_ui_shell PUBLIC izan_imgui dwmapi imm32)
+
+# Proof sheet for the built-in cursor set: renders every slot to a BMP
+# for visual acceptance without launching a window.
+add_executable(izan_cursor_sheet tools/cursor_sheet.cpp)
+target_link_libraries(izan_cursor_sheet PRIVATE izan_ui_shell)
 
 # The kit: every component drawn in the active design language.
 add_library(izan_kit STATIC
