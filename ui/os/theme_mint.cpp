@@ -46,9 +46,13 @@ namespace {
         {
             const float s = mint_scale();
             const float title_h = title_height(em);
-            const float rounding = 8.0f * s;
+            // Maximized windows sit flush in the workspace: square
+            // corners, and no shadow — a ring outside the rect would
+            // bleed onto the panel.
+            const float rounding = look.maximized ? 0.0f : 8.0f * s;
 
-            window_shadow(draw, rmin, rmax, rounding, s);
+            if (!look.maximized)
+                window_shadow(draw, rmin, rmax, rounding, s);
             // One sheet of glass owns the window's opacity: the body
             // alone carries alpha 245 (0.96). Every surface an app
             // paints on top is a faint tint, not a second sheet —
