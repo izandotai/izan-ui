@@ -32,6 +32,7 @@ bool GlfwApp::init(const AppOptions& options)
 {
     if (options.attach_parent_console)
         try_attach_parent_console();
+    lazy_ = options.lazy_redraw;
 
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -167,7 +168,12 @@ bool GlfwApp::should_close() const
 
 void GlfwApp::poll_events() const
 {
-    glfwPollEvents();
+    // Lazy mode parks on the event queue with a heartbeat timeout;
+    // input wakes the loop instantly, idling costs almost nothing.
+    if (lazy_)
+        glfwWaitEventsTimeout(0.25);
+    else
+        glfwPollEvents();
 }
 
 void GlfwApp::begin_frame() const

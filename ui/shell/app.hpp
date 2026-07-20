@@ -22,6 +22,10 @@ struct AppOptions {
     // Hardware multisampling; 0 leans on imgui's own geometry AA,
     // which is cheaper and just as clean for 2D chrome.
     int msaa_samples = 0;
+    // Event-driven redraw: idle at a 4fps heartbeat, wake to full
+    // rate on any input - the battery-friendly mode for a desktop
+    // that sits open all day.
+    bool lazy_redraw = false;
     // The host's typeface; the defaults reproduce the izan look.
     FontOptions fonts {};
 };
@@ -63,6 +67,7 @@ public:
 private:
     GLFWwindow* window_ = nullptr;
     bool initialized_ = false;
+    bool lazy_ = false;
     std::function<void()> render_;
 };
 

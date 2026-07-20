@@ -647,6 +647,8 @@ int main(int argc, char** argv)
     ui::GlfwApp app;
     ui::AppOptions opts;
     opts.title = "izan-os";
+    // IZAN_OS_LAZY=1: try the event-driven idle mode.
+    opts.lazy_redraw = std::getenv("IZAN_OS_LAZY") != nullptr;
     opts.width = 1500;
     opts.height = 980;
     if (!app.init(opts))
