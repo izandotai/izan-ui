@@ -135,6 +135,24 @@ function(izan_ui_copy_assets target)
         COMMENT "Copying izan-ui assets for ${target}")
 endfunction()
 
+# izan OS: the desktop-grade windowing kernel every family product
+# stands on. Mechanism (window manager, dock model, app registry)
+# is style-free; every pixel routes through the Theme interface —
+# the macOS-cultured look is the first theme, a Mint or Ubuntu look
+# is a new implementation, the kernel untouched.
+if(IZAN_UI_SHELL)
+    add_library(izan_os STATIC
+        ui/os/dock.cpp
+        ui/os/menu_bar.cpp
+        ui/os/shell.cpp
+        ui/os/theme_mac.cpp
+        ui/os/wm.cpp
+    )
+    add_library(izan::os ALIAS izan_os)
+    target_include_directories(izan_os PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(izan_os PUBLIC izan_imgui PRIVATE izan_kit)
+endif()
+
 if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
     # The acceptance shell: full window chrome plus a component
     # gallery, double-click friendly (windows subsystem; a terminal
@@ -167,4 +185,11 @@ if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
         izan_ui_macos_demo PRIVATE demo/macos)
     target_link_libraries(izan_ui_macos_demo PRIVATE izan_ui_shell)
     izan_ui_copy_assets(izan_ui_macos_demo)
+
+    # The izan OS acceptance shell: kernel + mac theme + three apps
+    # of live kit widgets on the dock.
+    add_executable(izan_ui_os_demo WIN32 demo/os/main.cpp)
+    target_link_libraries(
+        izan_ui_os_demo PRIVATE izan_ui_shell izan_os izan_kit)
+    izan_ui_copy_assets(izan_ui_os_demo)
 endif()

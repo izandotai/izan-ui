@@ -92,7 +92,18 @@ bool GlfwApp::init(const AppOptions& options)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    load_font(io, options.fonts);
+    // The host speaks design sizes (authored at kFontDesignScale);
+    // the shell converts to this monitor's pixels so the typeface
+    // keeps one physical look across Windows scale settings.
+    FontOptions fonts = options.fonts;
+    float content_scale_x = 1.0f;
+    float content_scale_y = 1.0f;
+    glfwGetWindowContentScale(window_, &content_scale_x, &content_scale_y);
+    fonts.size = fonts.size * content_scale_x / kFontDesignScale;
+    if (fonts.rasterizer_density <= 0.0f)
+        fonts.rasterizer_density
+            = content_scale_x > 1.0f ? content_scale_x : 1.0f;
+    load_font(io, fonts);
     apply_style();
     ImGuiStyle& aa = ImGui::GetStyle();
     aa.AntiAliasedLines = true;

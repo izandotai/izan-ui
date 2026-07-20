@@ -144,10 +144,15 @@ void load_font(ImGuiIO& io, const FontOptions& options)
         AddFontResourceExA(path.string().c_str(), FR_PRIVATE, nullptr);
 #endif
 
+        const float density = options.rasterizer_density > 0.0f
+            ? options.rasterizer_density
+            : 1.0f;
+
         ImFontConfig config;
         config.OversampleH = 2;
         config.OversampleV = 2;
         config.PixelSnapH = false;
+        config.RasterizerDensity = density;
         config.GlyphExcludeRanges = main_font_emoji_exclude_ranges;
 
         ImFont* font = io.Fonts->AddFontFromFileTTF(path.string().c_str(),
@@ -176,6 +181,7 @@ void load_font(ImGuiIO& io, const FontOptions& options)
             ImFontConfig emoji_config;
             emoji_config.MergeMode = true;
             emoji_config.PixelSnapH = false;
+            emoji_config.RasterizerDensity = density;
             emoji_config.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LoadColor;
             io.Fonts->AddFontFromFileTTF(emoji_path.string().c_str(),
                 options.size, &emoji_config, emoji_ranges);
@@ -186,6 +192,7 @@ void load_font(ImGuiIO& io, const FontOptions& options)
         // tofu box.
         ImFontConfig fallback_config;
         fallback_config.MergeMode = true;
+        fallback_config.RasterizerDensity = density;
         fallback_config.OversampleH = 2;
         fallback_config.OversampleV = 2;
         fallback_config.PixelSnapH = false;
@@ -199,6 +206,7 @@ void load_font(ImGuiIO& io, const FontOptions& options)
             ImFontConfig symbol_config;
             symbol_config.MergeMode = true;
             symbol_config.PixelSnapH = false;
+            symbol_config.RasterizerDensity = density;
             io.Fonts->AddFontFromFileTTF(
                 kSymbolFont, options.size, &symbol_config, nullptr);
         }
