@@ -70,11 +70,10 @@ bool GlfwApp::init(const AppOptions& options)
     }
 
     glfwMakeContextCurrent(window_);
-    // Adaptive vsync where the driver offers it (nanogui's trick): a
-    // late frame tears through instead of stalling a whole vblank,
-    // which is most of the difference between "synced" and "silky".
-    glfwSwapInterval(
-        glfwExtensionSupported("WGL_EXT_swap_control_tear") ? -1 : 1);
+    // Plain vsync: adaptive (-1) was tried and TEARS by design when a
+    // frame is late - a borderless window on independent flip shows
+    // it. DWM-synced swap is how native windows stay tear-free.
+    glfwSwapInterval(1);
 #ifndef GL_MULTISAMPLE
 #define GL_MULTISAMPLE 0x809D
 #endif

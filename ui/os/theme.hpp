@@ -30,6 +30,10 @@ struct WindowLook {
     const App* app = nullptr;
     bool focused = false;
     bool maximized = false;
+    // True only for the one window directly under the cursor while
+    // no drag or resize is in flight - hover feedback anywhere else
+    // is a lie.
+    bool hover_ok = false;
 };
 
 class Theme {

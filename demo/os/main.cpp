@@ -15,6 +15,7 @@
 
 #include <backends/imgui_impl_opengl3.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -295,17 +296,19 @@ public:
 
     void draw() override
     {
-        static char buffer[2048] = {};
-        static bool focus = false;
-        ImGui::SetCursorScreenPos({ ImGui::GetWindowPos().x + 14.0f,
-            ImGui::GetWindowPos().y + 14.0f });
-        ImGui::BeginGroup();
+        static char buffer[256] = {};
+        const float s = mint_scale();
+        const ImVec2 origin { ImGui::GetWindowPos().x + 14.0f * s,
+            ImGui::GetWindowPos().y + 14.0f * s };
+        ImGui::SetCursorScreenPos(origin);
         ImGui::TextDisabled("窗口里是真组件——外框怎么变，字号不变。");
-        ui::kit_vspace(0.3f);
-        ImGui::SetNextItemWidth(ImGui::GetWindowSize().x - 28.0f);
-        ui::kit_paste_box(
-            "##notes", "写点东西…", buffer, sizeof buffer, 8.0f, focus);
-        ImGui::EndGroup();
+        IzanFieldStyle st;
+        const ImVec2 wmin { origin.x, origin.y + 44.0f * s };
+        const ImVec2 wmax { origin.x
+                + std::min(ImGui::GetWindowSize().x - 28.0f * s, 460.0f * s),
+            wmin.y + 40.0f * s };
+        izan_input(
+            "##notes", "写点东西…", buffer, sizeof buffer, wmin, wmax, st);
     }
 };
 
@@ -334,9 +337,15 @@ public:
         static char field[64] = {};
         static char amount[24] = "1.25";
         static bool toggled = true;
-        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
-        ui::kit_text_field("##g-field", "输入点什么…", field, sizeof field);
-        ui::kit_vspace(0.3f);
+        {
+            const float s = mint_scale();
+            const ImVec2 wmin = ImGui::GetCursorScreenPos();
+            const ImVec2 wmax { wmin.x + 300.0f * s, wmin.y + 40.0f * s };
+            IzanFieldStyle st;
+            izan_input("##g-field", "输入点什么…", field, sizeof field, wmin,
+                wmax, st);
+            ImGui::SetCursorScreenPos({ wmin.x, wmax.y + 10.0f * s });
+        }
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
         ui::kit_amount_field(
             "##g-amount", amount, sizeof amount, "SOL", nullptr, "Solana");

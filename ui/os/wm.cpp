@@ -198,6 +198,29 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
         }
     }
 
+    // The one window allowed to show hover: the topmost under the
+    // cursor, and only while nothing is being dragged or resized —
+    // a drag passing over a background window must not light it up.
+    hover_ = -1;
+    if (drag_ < 0 && resize_ < 0
+        && std::none_of(
+            blocked.begin(), blocked.end(),
+            [&](const OsRect& r) { return r.contains(io.MousePos); })) {
+        for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
+            const WindowState& w = windows_[static_cast<std::size_t>(*it)];
+            if (!w.open || w.minimized)
+                continue;
+            const ImVec2 rmin = w.maximized ? ws_min : w.pos;
+            const ImVec2 rmax = w.maximized
+                ? ws_max
+                : ImVec2 { w.pos.x + w.size.x, w.pos.y + w.size.y };
+            if (inside(io.MousePos, rmin, rmax)) {
+                hover_ = *it;
+                break;
+            }
+        }
+    }
+
     // ---- paint pass, bottom → top ----
     const std::vector<int> order = z_;
     for (int index : order) {
@@ -252,6 +275,7 @@ void Wm::paint_window(int index)
     wl.app = w.app;
     wl.focused = focused_win;
     wl.maximized = w.maximized;
+    wl.hover_ok = index == hover_;
     look.paint_window(ImGui::GetWindowDrawList(), wl, rmin, rmax, em);
 
     // Control actions live in the kernel; the theme only says where.

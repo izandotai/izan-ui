@@ -93,7 +93,7 @@ namespace {
             for (int c = 0; c < 3; ++c) {
                 const OsRect r = control_rect(
                     static_cast<WindowControl>(c), rmin, rmax, em);
-                const bool hot = r.contains(mouse);
+                const bool hot = look.hover_ok && r.contains(mouse);
                 const bool is_close
                     = c == static_cast<int>(WindowControl::Close);
                 if (hot) {

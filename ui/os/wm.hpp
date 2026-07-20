@@ -78,6 +78,7 @@ private:
     ImVec2 grab_offset_ {};
     ImVec2 grab_size_ {};
     ImVec2 grab_mouse_ {};
+    int hover_ = -1; // sole window whose hover feedback is honest
     int spawn_count_ = 0;
     ImVec2 ws_min_ {};
     ImVec2 ws_max_ {};
