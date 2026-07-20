@@ -4,6 +4,8 @@
 
 #include <functional>
 
+#include "ui/shell/fonts.hpp"
+
 struct GLFWwindow;
 
 namespace izan::ui {
@@ -17,6 +19,8 @@ struct AppOptions {
     int width = 1280;
     int height = 800;
     bool attach_parent_console = true;
+    // The host's typeface; the defaults reproduce the izan look.
+    FontOptions fonts {};
 };
 
 class GlfwApp {

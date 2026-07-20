@@ -92,7 +92,7 @@ bool GlfwApp::init(const AppOptions& options)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    load_default_font(io);
+    load_font(io, options.fonts);
     apply_style();
     ImGuiStyle& aa = ImGui::GetStyle();
     aa.AntiAliasedLines = true;

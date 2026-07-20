@@ -60,21 +60,23 @@ namespace {
                 r - 1.0f, 0, 1.0f);
         });
         // The light that clears the rim lands on the outer lower lip.
-        clipped(max.y - h * 0.25f, max.y + 2.0f, [&] {
+        clipped(max.y - h * 0.25f, max.y + 2.5f, [&] {
             draw->AddRect(ImVec2(min.x - 0.5f, min.y - 0.5f),
                 ImVec2(max.x + 0.5f, max.y + 0.5f),
                 ImGui::GetColorU32(ImVec4(1, 1, 1, dark ? 0.07f : 0.55f)),
-                r + 0.5f, 0, 1.0f);
+                r + 0.5f, 0, 1.5f);
         });
-        // The rim: hairline all round, darker across the top — the
-        // opposite hand of the button's rim, same light.
+        // The rim, darker across the top — the opposite hand of the
+        // button's rim, same light. A 1px hairline breaks up on the
+        // rounded corners (anti-aliased arcs thin it to nothing); two
+        // pixels keep the ring closed all the way round.
         draw->AddRect(min, max,
             ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Separator)), r,
-            0, 1.0f);
+            0, 2.0f);
         clipped(min.y, min.y + h * 0.5f, [&] {
             draw->AddRect(min, max,
                 ImGui::GetColorU32(ImVec4(0, 0, 0, dark ? 0.32f : 0.16f)), r, 0,
-                1.0f);
+                2.0f);
         });
 
         if (focused) {
@@ -87,7 +89,7 @@ namespace {
             }
             ImVec4 ring = kit_accent();
             ring.w = 0.85f;
-            draw->AddRect(min, max, ImGui::GetColorU32(ring), r, 0, 1.2f);
+            draw->AddRect(min, max, ImGui::GetColorU32(ring), r, 0, 2.0f);
         }
     }
 

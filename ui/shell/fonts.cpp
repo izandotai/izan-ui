@@ -74,8 +74,18 @@ std::filesystem::path executable_dir()
 #endif
 }
 
-void load_default_font(ImGuiIO& io)
+namespace {
+    FontOptions g_active_font {};
+}
+
+const FontOptions& active_font()
 {
+    return g_active_font;
+}
+
+void load_font(ImGuiIO& io, const FontOptions& options)
+{
+    g_active_font = options;
     static const ImWchar emoji_ranges[] = {
         0x00A9,
         0x00AE,
@@ -119,11 +129,11 @@ void load_default_font(ImGuiIO& io)
         0,
     };
 
+    const std::filesystem::path primary = options.primary_path;
     const std::array<std::filesystem::path, 3> candidates = {
-        executable_dir() / kDefaultFontRelativePath,
-        std::filesystem::current_path() / kDefaultFontRelativePath,
-        std::filesystem::current_path() / ".." / ".."
-            / kDefaultFontRelativePath,
+        primary.is_absolute() ? primary : executable_dir() / primary,
+        std::filesystem::current_path() / primary,
+        std::filesystem::current_path() / ".." / ".." / primary,
     };
 
     for (const auto& path : candidates) {
@@ -141,7 +151,7 @@ void load_default_font(ImGuiIO& io)
         config.GlyphExcludeRanges = main_font_emoji_exclude_ranges;
 
         ImFont* font = io.Fonts->AddFontFromFileTTF(path.string().c_str(),
-            kDefaultFontSize, &config, io.Fonts->GetGlyphRangesChineseFull());
+            options.size, &config, io.Fonts->GetGlyphRangesChineseFull());
 
         if (font == nullptr)
             continue;
@@ -157,15 +167,18 @@ void load_default_font(ImGuiIO& io)
         // candidate file is auditioned before it earns a place in the
         // waterfall); unset, the system face stands.
         const char* emoji_env = std::getenv("IZAN_EMOJI_FONT");
+        const char* emoji_pick = emoji_env && *emoji_env
+            ? emoji_env
+            : options.emoji_path;
         const std::filesystem::path emoji_path
-            = emoji_env && *emoji_env ? emoji_env : kEmojiFontPath;
-        if (std::filesystem::exists(emoji_path)) {
+            = emoji_pick ? emoji_pick : "";
+        if (!emoji_path.empty() && std::filesystem::exists(emoji_path)) {
             ImFontConfig emoji_config;
             emoji_config.MergeMode = true;
             emoji_config.PixelSnapH = false;
             emoji_config.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LoadColor;
             io.Fonts->AddFontFromFileTTF(emoji_path.string().c_str(),
-                kDefaultFontSize, &emoji_config, emoji_ranges);
+                options.size, &emoji_config, emoji_ranges);
         }
         // Third priority: the primary face again without the exclude
         // table, catching every symbol the emoji font has no glyph
@@ -176,7 +189,7 @@ void load_default_font(ImGuiIO& io)
         fallback_config.OversampleH = 2;
         fallback_config.OversampleV = 2;
         fallback_config.PixelSnapH = false;
-        io.Fonts->AddFontFromFileTTF(path.string().c_str(), kDefaultFontSize,
+        io.Fonts->AddFontFromFileTTF(path.string().c_str(), options.size,
             &fallback_config, io.Fonts->GetGlyphRangesChineseFull());
 #ifdef _WIN32
         // Fourth priority: Segoe UI Symbol picks up the obscure
@@ -187,7 +200,7 @@ void load_default_font(ImGuiIO& io)
             symbol_config.MergeMode = true;
             symbol_config.PixelSnapH = false;
             io.Fonts->AddFontFromFileTTF(
-                kSymbolFont, kDefaultFontSize, &symbol_config, nullptr);
+                kSymbolFont, options.size, &symbol_config, nullptr);
         }
 #endif
         return;
@@ -195,7 +208,12 @@ void load_default_font(ImGuiIO& io)
 
     io.Fonts->AddFontDefault();
     std::fprintf(
-        stderr, "Failed to load UI font: %s\n", kDefaultFontRelativePath);
+        stderr, "Failed to load UI font: %s\n", options.primary_path);
+}
+
+void load_default_font(ImGuiIO& io)
+{
+    load_font(io, FontOptions {});
 }
 
 }

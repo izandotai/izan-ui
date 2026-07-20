@@ -56,12 +56,12 @@ void update_ime_position(GLFWwindow* window, const ImVec2* override_pos)
     ImmSetCompositionWindow(context, &composition);
 
     LOGFONTA composition_font {};
-    composition_font.lfHeight = -static_cast<LONG>(kDefaultFontSize);
+    composition_font.lfHeight = -static_cast<LONG>(active_font().size);
     composition_font.lfWeight = FW_NORMAL;
     composition_font.lfCharSet = DEFAULT_CHARSET;
     composition_font.lfQuality = CLEARTYPE_QUALITY;
-    std::snprintf(
-        composition_font.lfFaceName, LF_FACESIZE, "%s", kDefaultFontFaceName);
+    std::snprintf(composition_font.lfFaceName, LF_FACESIZE, "%s",
+        active_font().face_name);
     ImmSetCompositionFontA(context, &composition_font);
 
     CANDIDATEFORM candidate {};
