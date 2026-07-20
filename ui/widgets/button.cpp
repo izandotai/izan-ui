@@ -57,18 +57,28 @@ namespace {
         const float h = max.y - min.y;
         ImDrawList* draw = ImGui::GetWindowDrawList();
 
+        // The light caps are analytic like the body they sit in — a
+        // polygon arc inside an SDF silhouette shows at the corners
+        // (the 2026-07-20 button-corner verdict).
         static constexpr float kDepth[] = { 0.18f, 0.34f, 0.50f, 0.66f };
         static constexpr float kAlpha[] = { 16.0f, 10.0f, 7.0f, 5.0f };
-        for (int i = 0; i < 4; ++i)
-            draw->AddRectFilled(ImVec2(min.x + 1.0f, min.y + 1.0f),
-                ImVec2(max.x - 1.0f, min.y + h * kDepth[i]),
-                IM_COL32(255, 255, 255, int(kAlpha[i] * g)), rounding - 1.0f,
-                ImDrawFlags_RoundCornersTop);
+        for (int i = 0; i < 4; ++i) {
+            render::SdfRect cap;
+            cap.min = ImVec2(min.x + 1.0f, min.y + 1.0f);
+            cap.max = ImVec2(max.x - 1.0f, min.y + h * kDepth[i]);
+            cap.radius[0] = cap.radius[1] = rounding - 1.0f; // top corners
+            cap.fill = IM_COL32(255, 255, 255, int(kAlpha[i] * g));
+            render::sdf_rect(draw, cap);
+        }
 
-        draw->AddRectFilled(ImVec2(min.x + 1.0f, max.y - h * 0.20f),
-            ImVec2(max.x - 1.0f, max.y - 1.0f),
-            IM_COL32(0, 0, 0, int(16.0f * g)), rounding - 1.0f,
-            ImDrawFlags_RoundCornersBottom);
+        {
+            render::SdfRect shade;
+            shade.min = ImVec2(min.x + 1.0f, max.y - h * 0.20f);
+            shade.max = ImVec2(max.x - 1.0f, max.y - 1.0f);
+            shade.radius[2] = shade.radius[3] = rounding - 1.0f; // bottom
+            shade.fill = IM_COL32(0, 0, 0, int(16.0f * g));
+            render::sdf_rect(draw, shade);
+        }
 
         draw->AddLine(ImVec2(min.x + rounding * 0.9f, min.y + 1.0f),
             ImVec2(max.x - rounding * 0.9f, min.y + 1.0f),

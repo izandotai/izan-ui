@@ -53,11 +53,10 @@ struct DesignLanguage {
 
     // -- borders (2026-07-20 decree) --
     // Every rounded border in the kit rides the analytic base at this
-    // gauge, and slightly translucent: a fully opaque ring reads hard
-    // against its own AA edge — at ~0.9 the rim seats into the
-    // surface instead of sitting on it.
+    // gauge. (A 0.9 alpha ease was auditioned and rejected same day —
+    // the SDF edge needs no help; softening it only muddied rings.)
     float border_px = 2.0f;
-    float border_alpha = 0.9f;
+    float border_alpha = 1.0f;
 
     // -- buttons --
     // Shape and finish are tokens, not code: flip these to restyle

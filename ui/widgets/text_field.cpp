@@ -30,53 +30,20 @@ namespace {
         kit_round_border(draw, min, max, r, color, px);
     }
 
-    // The recessed twin of the button's four-stroke gloss, mirrored
-    // for the same overhead light: the top lip shades the floor, the
-    // bottom of the well catches a little back-light, the outer lower
-    // lip takes the light that clears the rim, and the rim itself runs
-    // dark-on-top. Focus wraps the well in the accent halo. Every
-    // stroke is analytic (sdf_rect), which honors the clip rect — the
-    // partial-height lighting keeps working.
+    // ONE visible frame — the component contract. The old recessed
+    // lighting (three inner shadows, back-light, outer lip) stacked
+    // five near-coincident rings on a large radius and read as one
+    // muddy band; the 2026-07-20 side-by-side against the mint input
+    // (fill + single border, clean) settled it. Focus still speaks
+    // with the accent halo, drawn outside the silhouette.
     void paint_well(const ImVec2& min, const ImVec2& max, bool focused)
     {
         ImDrawList* draw = ImGui::GetWindowDrawList();
         const float em = ImGui::GetFontSize();
         const float r = em * design().field_radius;
-        const bool dark = kit_is_dark();
-        const float h = max.y - min.y;
 
-        auto clipped = [&](float y0, float y1, auto&& paint) {
-            draw->PushClipRect(
-                ImVec2(min.x - 4.0f, y0), ImVec2(max.x + 4.0f, y1), true);
-            paint();
-            draw->PopClipRect();
-        };
-
-        // Top inner shadow: three fading inset strokes, corner-true.
-        clipped(min.y, min.y + h * 0.45f, [&] {
-            for (int i = 1; i <= 3; ++i) {
-                const float a = (dark ? 0.17f : 0.09f) * float(4 - i) / 3.0f;
-                sdf_ring(draw, ImVec2(min.x + float(i), min.y + float(i)),
-                    ImVec2(max.x - float(i), max.y - float(i)), r - float(i),
-                    ImVec4(0, 0, 0, a), 1.0f);
-            }
-        });
-        // A whisper of back-light on the well's inner floor edge.
-        clipped(max.y - h * 0.3f, max.y, [&] {
-            sdf_ring(draw, ImVec2(min.x + 1, min.y + 1),
-                ImVec2(max.x - 1, max.y - 1), r - 1.0f,
-                ImVec4(1, 1, 1, dark ? 0.045f : 0.35f), 1.0f);
-        });
-        // The light that clears the rim lands on the outer lower lip.
-        clipped(max.y - h * 0.25f, max.y + 2.5f, [&] {
-            sdf_ring(draw, ImVec2(min.x - 0.5f, min.y - 0.5f),
-                ImVec2(max.x + 0.5f, max.y + 0.5f), r + 0.5f,
-                ImVec4(1, 1, 1, dark ? 0.07f : 0.55f), 1.5f);
-        });
-        // The rim: one solid 2px stroke — the component border
-        // standard, same gauge as the window's.
         sdf_ring(draw, min, max, r,
-            ImGui::GetStyleColorVec4(ImGuiCol_Separator), 2.0f);
+            ImGui::GetStyleColorVec4(ImGuiCol_Separator), design().border_px);
 
         if (focused) {
             ImVec4 halo = kit_accent();
@@ -88,7 +55,7 @@ namespace {
             }
             ImVec4 ring = kit_accent();
             ring.w = 0.85f;
-            sdf_ring(draw, min, max, r, ring, 2.0f);
+            sdf_ring(draw, min, max, r, ring, design().border_px);
         }
     }
 
