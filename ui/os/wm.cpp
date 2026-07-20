@@ -199,14 +199,14 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
         }
     }
 
-    // While a window is in hand the cursor is drawn by imgui, in the
-    // same frame as the chrome it drags: window and cursor move as
-    // one set of pixels and can never slip apart, which is most of
-    // what makes a native title-bar drag read as effortless. The
-    // hardware cursor comes back the moment the button lifts.
-    // IZAN_OS_HW_CURSOR_DRAG=1 keeps the hardware cursor throughout.
+    // IZAN_OS_SOFT_CURSOR_DRAG=1: while a window is in hand the cursor
+    // is drawn by imgui, in the same frame as the chrome it drags —
+    // window and cursor can never slip apart. Off by default: imgui's
+    // stock arrow clashes with the theme's cursor set. The switch
+    // stays for the day the theme cursor is baked into a texture and
+    // the in-frame cursor can wear it.
     static const bool soft_drag_cursor
-        = std::getenv("IZAN_OS_HW_CURSOR_DRAG") == nullptr;
+        = std::getenv("IZAN_OS_SOFT_CURSOR_DRAG") != nullptr;
     io.MouseDrawCursor = soft_drag_cursor && (drag_ >= 0 || resize_ >= 0);
 
     // The one window allowed to show hover: the topmost under the
