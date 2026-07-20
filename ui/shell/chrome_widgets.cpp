@@ -477,13 +477,15 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
         ImGuiCol_WindowBg, theme_transparent_chrome_window_color(app));
     ImGui::Begin("izan-titlebar", nullptr, flags);
 
-    // The izan mark, by decree an emoji: one colored glyph from the
-    // waterfall's emoji face, sitting ahead of the title.
+    // The app's mark, by decree an emoji: one colored glyph from the
+    // waterfall's emoji face, sitting ahead of the title. Whose glyph
+    // is the host's call — the shell only ships the izan default.
     ImGui::PushFont(nullptr, 22.0f);
-    const ImVec2 mark_size = ImGui::CalcTextSize("⛩️");
+    const char* mark = app.title_mark.c_str();
+    const ImVec2 mark_size = ImGui::CalcTextSize(mark);
     ImGui::SetCursorScreenPos(ImVec2(title_min.x + 14.0f,
         title_min.y + std::floor((kTitleBarHeight - mark_size.y) * 0.5f)));
-    ImGui::TextUnformatted("⛩️");
+    ImGui::TextUnformatted(mark);
     ImGui::PopFont();
     const float title_x = title_min.x + 14.0f + mark_size.x + 6.0f;
     ImGui::SetCursorScreenPos(ImVec2(title_x, text_y));

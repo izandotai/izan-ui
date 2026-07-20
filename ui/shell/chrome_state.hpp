@@ -13,6 +13,8 @@ namespace izan::ui {
 struct ChromeState {
     int theme_index = 0;
     float window_opacity = 0.96f;
+    // The emoji ahead of the title — the app's own mark.
+    std::string title_mark = "⛩️";
     // Caption-button tooltip texts. The frame ships English; an app
     // with a catalog pours its own words in every frame — the shell
     // itself never owns a translation table.
