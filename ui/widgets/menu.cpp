@@ -39,8 +39,9 @@ namespace {
             min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight());
         const float r = ImGui::GetStyle().PopupRounding;
         kit_round_fill(draw, min, max, r, ImGui::GetColorU32(g_menu_bg));
-        kit_round_border(
-            draw, min, max, r, ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImVec4 rim = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        rim.w = 0.22f; // same verdict as the dialog shell
+        kit_round_border(draw, min, max, r, rim);
     }
 
     void pop_menu_style()

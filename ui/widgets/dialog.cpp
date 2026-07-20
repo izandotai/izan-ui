@@ -88,8 +88,13 @@ namespace {
             min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight());
         const float r = ImGui::GetStyle().PopupRounding;
         kit_round_fill(draw, min, max, r, ImGui::GetColorU32(g_panel_bg));
-        kit_round_border(
-            draw, min, max, r, ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        // The rim in the text color at low alpha - definite against the
+        // panel in every theme. ImGuiCol_Border (a pale 1px-line tint)
+        // at the kit's 2px gauge read as a floating halo over the dim
+        // (2026-07-20 wallet ring, third and final verdict).
+        ImVec4 rim = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        rim.w = 0.22f;
+        kit_round_border(draw, min, max, r, rim);
     }
 
     void header_text(const char* title, const char* subtitle)
