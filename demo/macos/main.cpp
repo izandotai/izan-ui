@@ -1,75 +1,35 @@
-#include "macos_desktop.h"
+// The macOS replica inside the izan shell: family window frame and
+// title bar around the ImDrawList desktop, family typeface at the
+// family size. --screenshot <file.bmp> renders a few frames and
+// exits with a headless capture.
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "desktop.hpp"
 
-#if defined(__APPLE__)
-#include <OpenGL/gl3.h>
-#else
-#include <GL/gl.h>
-#endif
 #include <GLFW/glfw3.h>
 
-#include <algorithm>
+#if !defined(__APPLE__)
+#include <GL/gl.h>
+#endif
+
+#include <imgui.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <string>
 #include <string_view>
 #include <vector>
 
-#if defined(_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif
+#include "ui/shell/app.hpp"
+#include "ui/shell/chrome_state.hpp"
+#include "ui/shell/chrome_widgets.hpp"
+#include "ui/shell/constants.hpp"
+#include "ui/shell/theme.hpp"
+#include "ui/shell/win_chrome.hpp"
 
 namespace {
 
-void glfw_error_callback(int error, const char* description)
-{
-    std::fprintf(stderr, "GLFW error %d: %s\n", error, description);
-}
-
-std::filesystem::path executable_directory(const char* argv0)
-{
-#if defined(_WIN32)
-    (void)argv0;
-    std::wstring path(32768, L'\0');
-    const DWORD length = GetModuleFileNameW(
-        nullptr, path.data(), static_cast<DWORD>(path.size()));
-    path.resize(length);
-    return std::filesystem::path(path).parent_path();
-#else
-    std::error_code error;
-    auto path = std::filesystem::canonical(argv0, error);
-    return (error ? std::filesystem::absolute(argv0) : path).parent_path();
-#endif
-}
-
-ImFont* load_font(ImGuiIO& io, const char* argv0)
-{
-    // The family face, delivered next to the exe by izan_ui_copy_assets.
-    const auto font_path = executable_directory(argv0) / "assets" / "fonts"
-        / "LXGWWenKaiGBLite-Regular.ttf";
-
-    if (!std::filesystem::exists(font_path)) {
-        std::fprintf(
-            stderr, "Font not found: %s\n", font_path.string().c_str());
-        return io.Fonts->AddFontDefault();
-    }
-
-    ImFontConfig config;
-    config.OversampleH = 2;
-    config.OversampleV = 2;
-    config.PixelSnapH = false;
-    config.RasterizerDensity = 1.25f;
-    return io.Fonts->AddFontFromFileTTF(font_path.string().c_str(), 17.0f,
-        &config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-}
+namespace ui = izan::ui;
 
 #pragma pack(push, 1)
 
@@ -97,22 +57,23 @@ struct BitmapInfoHeader {
 
 #pragma pack(pop)
 
-bool capture_framebuffer(
+// Reads the front buffer — called right after a swap, so the frame
+// just presented is what lands in the file.
+bool capture_front_buffer(
     const std::filesystem::path& output, int width, int height)
 {
     const int row_size = (width * 3 + 3) & ~3;
     std::vector<unsigned char> pixels(
         static_cast<std::size_t>(row_size) * height);
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
-    glReadBuffer(GL_BACK);
+    glReadBuffer(GL_FRONT);
     glReadPixels(0, 0, width, height, 0x80E0 /* GL_BGR */, GL_UNSIGNED_BYTE,
         pixels.data());
 
     BitmapFileHeader file_header;
     BitmapInfoHeader info_header;
     info_header.width = width;
-    info_header.height
-        = height; // OpenGL and BMP both store the bottom row first.
+    info_header.height = height;
     info_header.image_size = static_cast<std::uint32_t>(pixels.size());
     file_header.size = file_header.pixel_offset + info_header.image_size;
 
@@ -129,7 +90,7 @@ bool capture_framebuffer(
     return stream.good();
 }
 
-} // namespace
+}
 
 int main(int argc, char** argv)
 {
@@ -140,107 +101,59 @@ int main(int argc, char** argv)
         }
     }
 
-    glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit()) {
+    ui::GlfwApp app;
+    ui::AppOptions opts;
+    opts.title = "macos";
+    opts.width = 1476;
+    opts.height = 1000;
+    if (!app.init(opts))
         return 1;
-    }
+    ui::set_window_icon_resource(app.window(), 1);
 
-#if defined(__APPLE__)
-    const char* glsl_version = "#version 150";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-#else
-    const char* glsl_version = "#version 130";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-#endif
+    ui::ChromeState chrome;
+    chrome.title_mark = "🖥️";
+    ui::apply_theme_style_only(chrome.theme_index);
+    glfwSetWindowOpacity(app.window(), chrome.window_opacity);
 
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
-
-    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    const int width = mode ? std::min(1440, mode->width - 80) : 1440;
-    const int height = mode ? std::min(900, mode->height - 80) : 900;
-    GLFWwindow* window = glfwCreateWindow(
-        width, height, "macOS · Dear ImGui", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
-        return 1;
-    }
-    if (mode) {
-        glfwSetWindowPos(
-            window, (mode->width - width) / 2, (mode->height - height) / 2);
-    }
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.IniFilename = nullptr;
-    io.LogFilename = nullptr;
-    io.FontDefault = load_font(io, argc > 0 ? argv[0] : "macos_imgui");
-
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.AntiAliasedLines = true;
-    style.AntiAliasedLinesUseTex = true;
-    style.AntiAliasedFill = true;
-    style.WindowRounding = 12.0f;
-    style.FrameRounding = 8.0f;
-    style.PopupRounding = 12.0f;
-    style.ScrollbarSize = 8.0f;
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
-
-    MacOSDesktop desktop;
+    macos::Desktop desktop;
     int rendered_frames = 0;
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-        if (glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
-            glfwWaitEventsTimeout(0.1);
-            continue;
-        }
+    app.set_render_callback([&] {
+        app.begin_frame();
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
+        ui::draw_main_window_frame(chrome);
+        ui::draw_custom_title_bar(
+            app.window(), chrome, "macOS", "ImDrawList replica");
 
-        desktop.render();
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        const float top = ui::kWindowFrameMargin + ui::kTitleBarHeight;
+        desktop.render(
+            ImVec2(vp->Pos.x + ui::kWindowFrameMargin, vp->Pos.y + top),
+            ImVec2(vp->Size.x - ui::kWindowFrameMargin * 2.0f,
+                vp->Size.y - top - ui::kWindowFrameMargin));
 
-        ImGui::Render();
-        int display_width = 0;
-        int display_height = 0;
-        glfwGetFramebufferSize(window, &display_width, &display_height);
-        glViewport(0, 0, display_width, display_height);
-        glClearColor(0.025f, 0.04f, 0.09f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ui::draw_snap_layout_popup(app.window(), chrome);
+        ui::draw_menu_popup_shadows(chrome);
+        if (chrome.request_exit)
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
+        app.end_frame(ui::theme_clear_color(chrome));
+
         if (!screenshot_path.empty() && ++rendered_frames >= 3) {
-            if (!capture_framebuffer(
+            int display_width = 0;
+            int display_height = 0;
+            glfwGetFramebufferSize(
+                app.window(), &display_width, &display_height);
+            if (!capture_front_buffer(
                     screenshot_path, display_width, display_height)) {
                 std::fprintf(stderr, "Unable to save screenshot: %s\n",
                     screenshot_path.string().c_str());
             }
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
         }
-        glfwSwapBuffers(window);
-    }
-
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    });
+    app.run();
+    app.shutdown();
     return 0;
 }
