@@ -43,50 +43,23 @@ namespace {
             ImGui::PopStyleVar();
     }
 
-    // The finish token, tuned against macOS: a soft light falling from
-    // the crown (layered caps stand in for a gradient, corners kept
-    // round), a shallow floor shade, a hairline crown highlight and a
-    // quiet darker rim to seat the button in the surface.
-    void paint_gloss(float rounding, bool with_rim = true)
+    // The finish token, cut back to what survives the single-frame
+    // contract (2026-07-20 verdict: the layered light caps and the
+    // seating rim each carried their own edge arc — two parallel
+    // outlines a pixel apart read as fringing on every corner). What
+    // remains is the one element with no arc of its own: a straight
+    // crown highlight between the corner radii.
+    void paint_gloss(float rounding, bool = true)
     {
         const float g = design().button_gloss;
         if (g <= 0.0f)
             return;
         const ImVec2 min = ImGui::GetItemRectMin();
         const ImVec2 max = ImGui::GetItemRectMax();
-        const float h = max.y - min.y;
         ImDrawList* draw = ImGui::GetWindowDrawList();
-
-        // The light caps are analytic like the body they sit in — a
-        // polygon arc inside an SDF silhouette shows at the corners
-        // (the 2026-07-20 button-corner verdict).
-        static constexpr float kDepth[] = { 0.18f, 0.34f, 0.50f, 0.66f };
-        static constexpr float kAlpha[] = { 16.0f, 10.0f, 7.0f, 5.0f };
-        for (int i = 0; i < 4; ++i) {
-            render::SdfRect cap;
-            cap.min = ImVec2(min.x + 1.0f, min.y + 1.0f);
-            cap.max = ImVec2(max.x - 1.0f, min.y + h * kDepth[i]);
-            cap.radius[0] = cap.radius[1] = rounding - 1.0f; // top corners
-            cap.fill = IM_COL32(255, 255, 255, int(kAlpha[i] * g));
-            render::sdf_rect(draw, cap);
-        }
-
-        {
-            render::SdfRect shade;
-            shade.min = ImVec2(min.x + 1.0f, max.y - h * 0.20f);
-            shade.max = ImVec2(max.x - 1.0f, max.y - 1.0f);
-            shade.radius[2] = shade.radius[3] = rounding - 1.0f; // bottom
-            shade.fill = IM_COL32(0, 0, 0, int(16.0f * g));
-            render::sdf_rect(draw, shade);
-        }
-
         draw->AddLine(ImVec2(min.x + rounding * 0.9f, min.y + 1.0f),
             ImVec2(max.x - rounding * 0.9f, min.y + 1.0f),
             IM_COL32(255, 255, 255, int(56.0f * g)));
-
-        if (with_rim)
-            kit_round_border(
-                draw, min, max, rounding, ImVec4(0, 0, 0, 48.0f / 255.0f * g));
     }
 
     // Every kit button rides the analytic base: an SDF capsule for
@@ -114,7 +87,6 @@ namespace {
 
         const float rounding
             = design().button_pill ? h * 0.5f : ImGui::GetStyle().FrameRounding;
-        const float g = design().button_gloss;
         ImDrawList* draw = ImGui::GetWindowDrawList();
         render::SdfRect body;
         body.min = pos;
@@ -122,13 +94,8 @@ namespace {
         body.radius[0] = body.radius[1] = body.radius[2] = body.radius[3]
             = rounding;
         body.fill = ImGui::GetColorU32(base);
-        if (g > 0.0f) {
-            // The seating rim at the kit gauge (2px decree), eased by
-            // the language's border alpha.
-            body.border = ImGui::GetColorU32(
-                ImVec4(0, 0, 0, 48.0f / 255.0f * g * design().border_alpha));
-            body.border_px = design().border_px;
-        }
+        // One silhouette, no seating rim: the fill's own SDF edge is
+        // the button's only outline.
         render::sdf_rect(draw, body);
         paint_gloss(rounding, false);
 
