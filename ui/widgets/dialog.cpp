@@ -90,14 +90,22 @@ namespace {
         const ImVec2 max(
             min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight());
         const float r = ImGui::GetStyle().PopupRounding;
-        kit_round_fill(draw, min, max, r, ImGui::GetColorU32(g_panel_bg));
-        // The rim in the text color at low alpha - definite against the
-        // panel in every theme. ImGuiCol_Border (a pale 1px-line tint)
-        // at the kit's 2px gauge read as a floating halo over the dim
-        // (2026-07-20 wallet ring, third and final verdict).
-        ImVec4 rim = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-        rim.w = 0.22f;
-        kit_round_border(draw, min, max, r, rim);
+        // ONE pass, fill and rim together: two stacked passes each
+        // brought their own AA fringe to the silhouette and the rim's
+        // outer sliver sat on the corner-dark shadow - corners read
+        // thicker (2026-07-21 user finding). Single-pass borders live
+        // strictly inside the one silhouette, uniform everywhere.
+        render::SdfRect shell;
+        shell.min = min;
+        shell.max = max;
+        shell.radius[0] = shell.radius[1] = shell.radius[2] = shell.radius[3]
+            = r;
+        shell.fill = ImGui::GetColorU32(g_panel_bg);
+        // Rimless by final decree (2026-07-21): every bordered variant
+        // - two-pass, single-pass, 2px, 4px - was auditioned against
+        // this and lost. The panel's own SDF silhouette against the
+        // shadow is the entire edge; nothing else touches it.
+        render::sdf_rect(draw, shell);
     }
 
     void header_text(const char* title, const char* subtitle)
