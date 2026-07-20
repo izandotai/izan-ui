@@ -27,6 +27,8 @@
 #include <string_view>
 #include <vector>
 
+#include "ui/render/image_load.hpp"
+#include "ui/render/live_backdrop.hpp"
 #include "ui/render/svg_raster.hpp"
 
 #include "ui/os/mint_paint.hpp"
@@ -472,6 +474,23 @@ void draw_mint_host_frame(GLFWwindow* window)
 
 typedef unsigned int GLuint_t;
 
+// A 1x1 transparent texture: handed to the shell in live mode so its
+// painted-wallpaper branch stands down while the shader owns the
+// background layer beneath.
+ImTextureID blank_tex()
+{
+    static GLuint_t tex = [] {
+        GLuint_t t = 0;
+        const unsigned char px[4] = { 0, 0, 0, 0 };
+        glGenTextures(1, &t);
+        glBindTexture(GL_TEXTURE_2D, t);
+        glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, 1, 1, 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, px);
+        return t;
+    }();
+    return static_cast<ImTextureID>(tex);
+}
+
 class SvgWallpaper {
 public:
     // Baked ONCE at the primary monitor's full size; every later call
@@ -512,30 +531,37 @@ private:
         const std::filesystem::path path = pick && *pick
             ? std::filesystem::path(pick)
             : ui::executable_dir() / "assets" / "wallpaper" / "mint-waves.svg";
-        std::ifstream in(path, std::ios::binary);
-        if (!in) {
-            broken_ = true;
-            return;
-        }
-        std::stringstream text;
-        text << in.rdbuf();
-        const std::string svg = text.str();
-        // Half the monitor, GPU-upscaled: the artwork is smooth
-        // gradients, a 2x stretch is invisible — and the CPU raster
+        // Photos (jpg/png/bmp) decode at native size; SVG rasters at
+        // half the monitor, GPU-upscaled — the artwork is smooth
+        // gradients, a 2x stretch is invisible, and the CPU raster
         // (the biggest single cost between click and window) drops
         // to a quarter.
-        int w = 1920 / 2, h = 1200 / 2;
-        if (const GLFWvidmode* mode
-            = glfwGetVideoMode(glfwGetPrimaryMonitor())) {
-            w = mode->width / 2;
-            h = mode->height / 2;
+        izan::render::SvgBitmap art;
+        const std::string ext = path.extension().string();
+        if (ext == ".svg") {
+            std::ifstream in(path, std::ios::binary);
+            if (!in) {
+                broken_ = true;
+                return;
+            }
+            std::stringstream text;
+            text << in.rdbuf();
+            const std::string svg = text.str();
+            int w = 1920 / 2, h = 1200 / 2;
+            if (const GLFWvidmode* mode
+                = glfwGetVideoMode(glfwGetPrimaryMonitor())) {
+                w = mode->width / 2;
+                h = mode->height / 2;
+            }
+            art = izan::render::raster_svg_cover(svg.c_str(), w, h);
+        } else {
+            art = izan::render::load_image_rgba(path.string().c_str());
         }
-        const izan::render::SvgBitmap art
-            = izan::render::raster_svg_cover(svg.c_str(), w, h);
         if (art.empty()) {
             broken_ = true;
             return;
         }
+        const int w = art.w, h = art.h;
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexImage2D(GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, w, h, 0, GL_RGBA,
@@ -782,18 +808,32 @@ int main(int argc, char** argv)
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float bar_h = kFrameHeight * mint_scale();
         const ImVec2 desk_size(vp->Size.x, vp->Size.y - bar_h);
-        // SVG backdrop first choice; the FBO-baked painter is the
-        // fallback when no file renders. Uploaded textures are
-        // top-down, so the UVs go straight (the FBO bake is
-        // bottom-up and keeps the flipped default).
+        // Wallpaper roads, in order of preference: IZAN_OS_WALLPAPER=
+        // live → the aurora shader on the background layer (a blank
+        // 1px texture keeps the shell's own painter quiet); a file
+        // (svg/jpg/png) → baked texture; nothing renderable → the
+        // theme's painted backdrop.
+        static const bool live_mode = [] {
+            const char* pick = std::getenv("IZAN_OS_WALLPAPER");
+            return pick && std::string_view(pick) == "live";
+        }();
+        const ImVec2 desk_pos(vp->Pos.x, vp->Pos.y + bar_h);
+        bool live_on = false;
+        if (live_mode)
+            live_on = izan::render::live_backdrop(
+                ImGui::GetBackgroundDrawList(), desk_pos,
+                { desk_pos.x + desk_size.x, desk_pos.y + desk_size.y },
+                static_cast<float>(ImGui::GetTime()));
         ImVec2 wp_uv0, wp_uv1;
-        if (ImTextureID svg_tex
+        if (live_on)
+            shell.set_wallpaper(blank_tex(), { 0, 0 }, { 1, 1 });
+        else if (ImTextureID svg_tex
             = svg_wallpaper.texture(desk_size, wp_uv0, wp_uv1))
             shell.set_wallpaper(svg_tex, wp_uv0, wp_uv1);
         else
             shell.set_wallpaper(wallpaper.texture(
                 os::mint_theme(), desk_size, ImGui::GetFontSize()));
-        shell.frame(ImVec2(vp->Pos.x, vp->Pos.y + bar_h), desk_size);
+        shell.frame(desk_pos, desk_size);
         draw_mint_host_frame(app.window());
         // Window in hand → the cursor rides in the frame, pixel-locked
         // to what it drags; hands off → hardware cursor, zero latency.

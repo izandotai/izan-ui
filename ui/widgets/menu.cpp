@@ -14,20 +14,37 @@ namespace {
     // The shell's dropdown numbers, mirrored exactly — one rhythm for
     // every menu in the app (chrome_widgets pushes the same values on
     // the menu bar's own popups).
+    // Same recipe as the dialog shell: imgui paints no popup of its
+    // own; the panel below is analytic, corners computed.
+    ImVec4 g_menu_bg;
+
     void push_menu_style()
     {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 14.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 11.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 12.0f));
-        ImVec4 popup_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
-        popup_bg.w = 1.0f;
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, popup_bg);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        g_menu_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+        g_menu_bg.w = 1.0f;
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
+    }
+
+    void paint_menu_shell()
+    {
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const ImVec2 min = ImGui::GetWindowPos();
+        const ImVec2 max(
+            min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight());
+        const float r = ImGui::GetStyle().PopupRounding;
+        kit_round_fill(draw, min, max, r, ImGui::GetColorU32(g_menu_bg));
+        kit_round_border(
+            draw, min, max, r, ImGui::GetStyleColorVec4(ImGuiCol_Border));
     }
 
     void pop_menu_style()
     {
         ImGui::PopStyleColor();
-        ImGui::PopStyleVar(3);
+        ImGui::PopStyleVar(4);
     }
 
 }
@@ -40,6 +57,7 @@ bool kit_menu_begin(const char* id)
         pop_menu_style();
         return false;
     }
+    paint_menu_shell();
     ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
     return true;
 }

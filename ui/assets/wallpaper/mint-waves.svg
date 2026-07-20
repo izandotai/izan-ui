@@ -10,7 +10,7 @@
       <stop offset="1" stop-color="#0a1c15"/>
     </linearGradient>
     <radialGradient id="glow1" gradientUnits="userSpaceOnUse" cx="1430" cy="290" r="720">
-      <stop offset="0" stop-color="#69b04c" stop-opacity="0.34"/>
+      <stop offset="0" stop-color="#74bc55" stop-opacity="0.40"/>
       <stop offset="0.5" stop-color="#4a9553" stop-opacity="0.13"/>
       <stop offset="1" stop-color="#4a9553" stop-opacity="0"/>
     </radialGradient>
@@ -37,7 +37,7 @@
     <linearGradient id="ridge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1920" y2="0">
       <stop offset="0" stop-color="#7ec25f" stop-opacity="0"/>
       <stop offset="0.45" stop-color="#7ec25f" stop-opacity="0.35"/>
-      <stop offset="0.75" stop-color="#9ad67e" stop-opacity="0.55"/>
+      <stop offset="0.75" stop-color="#a8e08c" stop-opacity="0.70"/>
       <stop offset="1" stop-color="#7ec25f" stop-opacity="0"/>
     </linearGradient>
   </defs>

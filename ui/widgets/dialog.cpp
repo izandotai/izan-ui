@@ -46,6 +46,14 @@ namespace {
             ImVec2(max.x, min.y + wash), lit, lit, gone, gone);
     }
 
+    // The imgui popup paints nothing of its own — transparent bg, no
+    // border — and the shell below lays the panel analytically, so
+    // the dialog's corners are computed, not polygon arcs (the same
+    // recipe that fixed the fields).
+    // The theme's true panel color, captured before the transparent
+    // push hides it from GetStyleColorVec4.
+    ImVec4 g_panel_bg;
+
     void push_dialog_style()
     {
         const DesignLanguage& dl = design();
@@ -55,12 +63,29 @@ namespace {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
             ImVec2(em * dl.dialog_row_gap, em * dl.dialog_row_gap));
         ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, em * dl.dialog_radius);
-        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        g_panel_bg = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
     }
 
     void pop_dialog_style()
     {
+        ImGui::PopStyleColor();
         ImGui::PopStyleVar(4);
+    }
+
+    // The panel itself: theme bg fill plus the kit-gauge border, both
+    // analytic, painted before any content.
+    void paint_window_shell()
+    {
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const ImVec2 min = ImGui::GetWindowPos();
+        const ImVec2 max(
+            min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight());
+        const float r = ImGui::GetStyle().PopupRounding;
+        kit_round_fill(draw, min, max, r, ImGui::GetColorU32(g_panel_bg));
+        kit_round_border(
+            draw, min, max, r, ImGui::GetStyleColorVec4(ImGuiCol_Border));
     }
 
     void header_text(const char* title, const char* subtitle)
@@ -133,6 +158,7 @@ bool kit_dialog_begin(const char* id, bool* dismissed, bool escapable)
         pop_dialog_style();
         return false;
     }
+    paint_window_shell();
     paint_window_decor();
     ImGui::Dummy(ImVec2(dialog_width(), 0.0f));
     if (escapable && ImGui::IsKeyPressed(ImGuiKey_Escape)) {

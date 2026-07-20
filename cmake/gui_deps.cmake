@@ -43,7 +43,14 @@ FetchContent_Declare(nanosvg
     DOWNLOAD_EXTRACT_TIMESTAMP ON
     EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(glfw freetype imgui nanosvg)
+# stb_image (public domain): photo wallpapers — jpg/png in, RGBA out.
+# Header-only, pinned by commit like nanosvg.
+FetchContent_Declare(stb
+    URL https://github.com/nothings/stb/archive/31c1ad37456438565541f4919958214b6e762fb4.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(glfw freetype imgui nanosvg stb)
 
 find_package(OpenGL REQUIRED)
 
