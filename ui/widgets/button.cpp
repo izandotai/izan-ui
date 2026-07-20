@@ -178,8 +178,8 @@ bool kit_add_button(const char* id, float side)
     // flush with the field beside it.
     const float rounding = ImGui::GetStyle().FrameRounding;
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(pos, ImVec2(pos.x + side, pos.y + side),
-        ImGui::GetColorU32(fill), rounding);
+    kit_round_fill(draw, pos, ImVec2(pos.x + side, pos.y + side), rounding,
+        ImGui::GetColorU32(fill));
     paint_gloss(rounding);
 
     // The cross: two snapped strokes through the true center, arms
