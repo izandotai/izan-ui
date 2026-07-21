@@ -156,6 +156,15 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
     ImGuiIO& io = ImGui::GetIO();
 
     // ---- input pre-pass: same-frame drag and resize ----
+    // A modal owns all input. imgui already refuses widget clicks to
+    // every window outside the modal's stack; the kernel's raw mouse
+    // work — raise, drag, resize, hover — must refuse itself the same
+    // way, or the glass beneath keeps moving while a passphrase is
+    // being typed. A drag in flight is dropped, not resumed: the modal
+    // took the mouse.
+    const bool modal_up = ImGui::GetTopMostPopupModal() != nullptr;
+    if (modal_up)
+        drag_ = resize_ = -1;
     if (drag_ >= 0) {
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             drag_ = -1;
@@ -178,7 +187,7 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
             w.size.y = std::max(
                 em * 10.0f, grab_size_.y + (io.MousePos.y - grab_mouse_.y));
         }
-    } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+    } else if (!modal_up && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
         && std::none_of(blocked.begin(), blocked.end(),
             [&](const OsRect& r) { return r.contains(io.MousePos); })) {
         for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
@@ -224,7 +233,7 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
     // cursor, and only while nothing is being dragged or resized —
     // a drag passing over a background window must not light it up.
     hover_ = -1;
-    if (drag_ < 0 && resize_ < 0
+    if (!modal_up && drag_ < 0 && resize_ < 0
         && std::none_of(
             blocked.begin(), blocked.end(),
             [&](const OsRect& r) { return r.contains(io.MousePos); })) {
