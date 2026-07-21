@@ -389,7 +389,9 @@ void Panel::draw_menu(
         return true;
     };
     if (menu_roster_) {
-        // The real shelf: every attached app, every row launches.
+        // The real shelf: every attached app, every row launches. The
+        // list scrolls under the wheel — a shelf outgrows a fixed
+        // page the day a developer gets a dev loop (2026-07-21).
         static constexpr std::array<ImU32, 6> kRosterColors = { {
             IM_COL32(109, 190, 69, 255),
             IM_COL32(77, 149, 209, 255),
@@ -398,19 +400,58 @@ void Panel::draw_menu(
             IM_COL32(113, 121, 117, 255),
             IM_COL32(171, 91, 167, 255),
         } };
-        for (int i = 0; i < static_cast<int>(apps.size()); ++i) {
-            App* app = apps[static_cast<std::size_t>(i)];
-            if (!query.empty()
-                && std::string_view(app->name()).find(query)
-                    == std::string_view::npos
-                && std::string_view(app->id()).find(query)
-                    == std::string_view::npos)
+        std::vector<App*> shown;
+        for (App* app : apps)
+            if (query.empty()
+                || std::string_view(app->name()).find(query)
+                    != std::string_view::npos
+                || std::string_view(app->id()).find(query)
+                    != std::string_view::npos)
+                shown.push_back(app);
+        const float row_top = min.y + 75.0f * s;
+        const float row_bottom = max.y - 58.0f * s;
+        const float span
+            = static_cast<float>(shown.size()) * 55.0f * s + 12.0f * s;
+        const float max_scroll
+            = std::max(0.0f, span - (row_bottom - row_top));
+        if (ImGui::IsMouseHoveringRect(
+                { apps_x - 8.0f * s, row_top }, { max.x, row_bottom }, false))
+            menu_scroll_ -= ImGui::GetIO().MouseWheel * 55.0f * s;
+        menu_scroll_ = std::clamp(menu_scroll_, 0.0f, max_scroll);
+        for (int i = 0; i < static_cast<int>(shown.size()); ++i) {
+            App* app = shown[static_cast<std::size_t>(i)];
+            const float y
+                = min.y + (82.0f + i * 55.0f) * s - menu_scroll_;
+            if (y + 53.0f * s > row_bottom || y < row_top)
                 continue;
-            if (!app_row(i, app->name(), app->id(),
-                    kRosterColors[static_cast<std::size_t>(i)
-                        % kRosterColors.size()],
-                    app->mark(), app))
-                break;
+            const ImVec2 app_min { apps_x - 8.0f * s, y - 2.0f * s };
+            const ImVec2 app_max { max.x - 14.0f * s, y + 53.0f * s };
+            const bool hot
+                = ImGui::IsMouseHoveringRect(app_min, app_max, false);
+            if (hot || menu_app_ == i)
+                draw->AddRectFilled(app_min, app_max,
+                    menu_app_ == i ? IM_COL32(109, 190, 69, 48)
+                                   : IM_COL32(255, 255, 255, 15),
+                    5.0f * s);
+            draw->AddRectFilled({ apps_x, y + 7.0f * s },
+                { apps_x + 38.0f * s, y + 45.0f * s },
+                kRosterColors[static_cast<std::size_t>(i)
+                    % kRosterColors.size()],
+                8.0f * s);
+            text_centered(draw, { apps_x + 19.0f * s, y + 26.0f * s },
+                IM_COL32(255, 255, 255, 255), app->mark(), kFontSymbol * s);
+            text_vcentered(draw, apps_x + 51.0f * s, y + 13.0f * s,
+                IM_COL32(239, 241, 240, 255), app->name(),
+                kFontBodyCompact * s);
+            text_vcentered(draw, apps_x + 51.0f * s, y + 39.0f * s,
+                IM_COL32(147, 151, 148, 255), app->id(),
+                kFontSecondary * s);
+            const std::string rid = "##menu-app-" + std::to_string(i);
+            if (invisible_hit(rid.c_str(), app_min, app_max)) {
+                menu_app_ = i;
+                wm.launch(app);
+                menu_open_ = false;
+            }
         }
     } else {
         for (int i = 0; i < 8; ++i) {

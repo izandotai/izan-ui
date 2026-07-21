@@ -45,6 +45,15 @@ public:
         menu_open_ = true;
     }
 
+    float menu_scroll() const { return menu_scroll_; }
+
+    // Nudge the roster scroll from outside (probes, future keys).
+    // Physical pixels; the frame clamps it to the list's span.
+    void scroll_menu(float px)
+    {
+        menu_scroll_ += px;
+    }
+
 private:
     void draw_menu(Wm& wm, const std::vector<App*>& apps, ImVec2 panel_min,
         ImVec2 panel_max);
@@ -52,6 +61,7 @@ private:
     std::vector<OsRect> blocked_;
     bool menu_open_ = false;
     bool menu_roster_ = false;
+    float menu_scroll_ = 0.0f;
     int menu_category_ = 0;
     int menu_app_ = -1;
     std::array<char, 96> menu_search_ {};
