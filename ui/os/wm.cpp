@@ -250,6 +250,17 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
         if (w.open && !w.minimized)
             paint_window(index);
     }
+
+    // The kernel just re-asserted its own display order, window by
+    // window — so it must also re-assert that the popup layer outranks
+    // it. Left alone, a modal and the kernel fight over the front
+    // every frame: the dialog sinks under the glass and flickers on
+    // every click. The open popup chain re-fronts in nesting order,
+    // innermost last.
+    ImGuiContext& g = *ImGui::GetCurrentContext();
+    for (int i = 0; i < g.OpenPopupStack.Size; ++i)
+        if (ImGuiWindow* popup = g.OpenPopupStack[i].Window)
+            ImGui::BringWindowToDisplayFront(popup);
 }
 
 void Wm::paint_window(int index)
