@@ -168,6 +168,13 @@ namespace {
                 std::clamp(basis * 0.095f, 72.0f, 118.0f));
         }
 
+        // Mint panels are light glass over a dark imgui style — the
+        // pill wears the same ink the widgets do, never style Text.
+        ImVec4 scrollbar_ink() const override
+        {
+            return ImVec4(52 / 255.0f, 55 / 255.0f, 53 / 255.0f, 1.0f);
+        }
+
         // The desktop icons live on whatever backdrop is showing —
         // painted bands or a blitted texture — so they are their own
         // pass, called by the shell after the wallpaper.

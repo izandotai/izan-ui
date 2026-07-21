@@ -94,6 +94,7 @@ add_library(izan_kit STATIC
     ui/widgets/identity.cpp
     ui/widgets/label.cpp
     ui/widgets/list_row.cpp
+    ui/widgets/scrollbar.cpp
     ui/widgets/menu.cpp
     ui/widgets/pill.cpp
     ui/widgets/qr.cpp

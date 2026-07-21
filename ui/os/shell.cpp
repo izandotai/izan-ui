@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "ui/widgets/scrollbar.hpp"
+
 namespace izan::os {
 
 void Shell::attach(App* app)
@@ -24,6 +26,10 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
 {
     const float em = ImGui::GetFontSize();
     const ImVec2 view_max { pos.x + size.x, pos.y + size.y };
+
+    // Stock scrollbars stay invisible under every theme; the skin
+    // pass at the end of this frame repaints them Mint-mannered.
+    ui::kit_scrollbars_stock_hide();
 
     // The desktop canvas: wallpaper only, pinned to the bottom of
     // the stack.
@@ -63,6 +69,10 @@ void Shell::frame(ImVec2 pos, ImVec2 size)
     // panel included — the one ordering imgui's own click-to-focus
     // agrees with (see front_popups).
     wm_.front_popups();
+
+    // Every window has drawn; dress every live scrollbar in the
+    // theme's own ink.
+    ui::kit_skin_scrollbars(wm_.theme().scrollbar_ink());
 }
 
 }

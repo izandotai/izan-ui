@@ -73,6 +73,16 @@ public:
         (void)max;
         (void)em;
     }
+
+    // The scrollbar pill's ink, before its state alpha. The imgui
+    // style's Text cannot answer this: a theme may paint its glass a
+    // different polarity than the style underneath (Mint's light
+    // panels ride a dark imgui style), and the white-on-white caret
+    // case already taught that lesson.
+    virtual ImVec4 scrollbar_ink() const
+    {
+        return ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    }
 };
 
 // The working development skin: Mint-cultured — bottom panel,
