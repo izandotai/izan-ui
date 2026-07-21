@@ -58,6 +58,16 @@ public:
     void frame(
         ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked);
 
+    // Re-front the open popup chain, nesting order, innermost last.
+    // The shell calls this after every self-fronting layer (panel
+    // included) has spoken: the popup layer outranks everything, and
+    // that verdict must be the frame's last word on display order —
+    // imgui's own click-to-focus fronts a clicked modal at EndFrame,
+    // and if any layer still sat above the popups, each click would
+    // hoist the modal past it for one rendered frame and the layer
+    // would flicker between lit and dimmed.
+    void front_popups();
+
     App* focused() const;
     bool running(const App* app) const;
 

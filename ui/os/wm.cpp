@@ -250,13 +250,18 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
         if (w.open && !w.minimized)
             paint_window(index);
     }
+}
 
-    // The kernel just re-asserted its own display order, window by
-    // window — so it must also re-assert that the popup layer outranks
-    // it. Left alone, a modal and the kernel fight over the front
-    // every frame: the dialog sinks under the glass and flickers on
-    // every click. The open popup chain re-fronts in nesting order,
-    // innermost last.
+// The kernel re-asserts its display order window by window, and the
+// panel fronts itself after that — so the popup layer's claim to the
+// top has to come after both, from the shell, or a modal sinks under
+// the glass. It also has to agree with imgui: click-to-focus fronts a
+// clicked modal at EndFrame, after all our ordering ran, so whatever
+// we leave above the popups gets leapfrogged for exactly one rendered
+// frame per click — the taskbar flickering between lit and dimmed
+// under the modal's dim layer. Popups last ends the fight.
+void Wm::front_popups()
+{
     ImGuiContext& g = *ImGui::GetCurrentContext();
     for (int i = 0; i < g.OpenPopupStack.Size; ++i)
         if (ImGuiWindow* popup = g.OpenPopupStack[i].Window)
