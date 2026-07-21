@@ -28,12 +28,30 @@ public:
         return blocked_;
     }
 
+    // Roster mode: the menu's application rows list the ATTACHED apps
+    // (name, mark, id — every row really launches) instead of the
+    // Mint reference's showcase rows. Off by default: the acceptance
+    // replica stays word for word.
+    void set_menu_roster(bool on)
+    {
+        menu_roster_ = on;
+    }
+
+    // Open the launcher menu from outside — a keyboard shortcut's or
+    // a headless probe's door; clicking the Menu button stays the
+    // usual road.
+    void open_menu()
+    {
+        menu_open_ = true;
+    }
+
 private:
     void draw_menu(Wm& wm, const std::vector<App*>& apps, ImVec2 panel_min,
         ImVec2 panel_max);
 
     std::vector<OsRect> blocked_;
     bool menu_open_ = false;
+    bool menu_roster_ = false;
     int menu_category_ = 0;
     int menu_app_ = -1;
     std::array<char, 96> menu_search_ {};

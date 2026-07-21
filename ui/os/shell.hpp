@@ -51,6 +51,11 @@ public:
         return wm_;
     }
 
+    Panel& panel()
+    {
+        return panel_;
+    }
+
 private:
     std::vector<App*> apps_;
     Wm wm_;

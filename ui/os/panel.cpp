@@ -352,14 +352,15 @@ void Panel::draw_menu(
     const float apps_x = min.x + categories_width + 28.0f * s;
     const std::string query(menu_search_.data());
     int visible = 0;
-    for (int i = 0; i < 8; ++i) {
-        const Row& row = kRows[static_cast<std::size_t>(i)];
-        if (!query.empty()
-            && std::string_view(row.name).find(query) == std::string_view::npos
-            && std::string_view(row.detail).find(query)
-                == std::string_view::npos)
-            continue;
+    // One row's furniture, shared by both modes: highlight, colored
+    // square with a glyph, name over detail, the whole row a launch
+    // target when an app rides it.
+    const auto app_row = [&](int i, const char* name, const char* detail,
+                             ImU32 color, const char* glyph,
+                             App* launches) -> bool {
         const float y = min.y + (82.0f + visible * 55.0f) * s;
+        if (y + 53.0f * s > max.y - 58.0f * s)
+            return false; // the footer's territory: stop listing
         const ImVec2 app_min { apps_x - 8.0f * s, y - 2.0f * s };
         const ImVec2 app_max { max.x - 14.0f * s, y + 53.0f * s };
         const bool hot = ImGui::IsMouseHoveringRect(app_min, app_max, false);
@@ -369,27 +370,68 @@ void Panel::draw_menu(
                                : IM_COL32(255, 255, 255, 15),
                 5.0f * s);
         draw->AddRectFilled({ apps_x, y + 7.0f * s },
-            { apps_x + 38.0f * s, y + 45.0f * s }, row.color, 8.0f * s);
+            { apps_x + 38.0f * s, y + 45.0f * s }, color, 8.0f * s);
         text_centered(draw, { apps_x + 19.0f * s, y + 26.0f * s },
-            IM_COL32(255, 255, 255, 255), row.glyph, kFontSymbol * s);
+            IM_COL32(255, 255, 255, 255), glyph, kFontSymbol * s);
         text_vcentered(draw, apps_x + 51.0f * s, y + 13.0f * s,
-            IM_COL32(239, 241, 240, 255), row.name, kFontBodyCompact * s);
+            IM_COL32(239, 241, 240, 255), name, kFontBodyCompact * s);
         text_vcentered(draw, apps_x + 51.0f * s, y + 39.0f * s,
-            IM_COL32(147, 151, 148, 255), row.detail, kFontSecondary * s);
+            IM_COL32(147, 151, 148, 255), detail, kFontSecondary * s);
         const std::string rid = "##menu-app-" + std::to_string(i);
         if (invisible_hit(rid.c_str(), app_min, app_max)) {
             menu_app_ = i;
-            if (row.launch_id != nullptr) {
-                for (App* app : apps) {
-                    if (std::strcmp(app->id(), row.launch_id) == 0) {
-                        wm.launch(app);
-                        menu_open_ = false;
-                        break;
-                    }
-                }
+            if (launches != nullptr) {
+                wm.launch(launches);
+                menu_open_ = false;
             }
         }
         ++visible;
+        return true;
+    };
+    if (menu_roster_) {
+        // The real shelf: every attached app, every row launches.
+        static constexpr std::array<ImU32, 6> kRosterColors = { {
+            IM_COL32(109, 190, 69, 255),
+            IM_COL32(77, 149, 209, 255),
+            IM_COL32(79, 155, 115, 255),
+            IM_COL32(224, 148, 52, 255),
+            IM_COL32(113, 121, 117, 255),
+            IM_COL32(171, 91, 167, 255),
+        } };
+        for (int i = 0; i < static_cast<int>(apps.size()); ++i) {
+            App* app = apps[static_cast<std::size_t>(i)];
+            if (!query.empty()
+                && std::string_view(app->name()).find(query)
+                    == std::string_view::npos
+                && std::string_view(app->id()).find(query)
+                    == std::string_view::npos)
+                continue;
+            if (!app_row(i, app->name(), app->id(),
+                    kRosterColors[static_cast<std::size_t>(i)
+                        % kRosterColors.size()],
+                    app->mark(), app))
+                break;
+        }
+    } else {
+        for (int i = 0; i < 8; ++i) {
+            const Row& row = kRows[static_cast<std::size_t>(i)];
+            if (!query.empty()
+                && std::string_view(row.name).find(query)
+                    == std::string_view::npos
+                && std::string_view(row.detail).find(query)
+                    == std::string_view::npos)
+                continue;
+            App* launches = nullptr;
+            if (row.launch_id != nullptr)
+                for (App* app : apps)
+                    if (std::strcmp(app->id(), row.launch_id) == 0) {
+                        launches = app;
+                        break;
+                    }
+            if (!app_row(i, row.name, row.detail, row.color, row.glyph,
+                    launches))
+                break;
+        }
     }
 
     // The session footer.
