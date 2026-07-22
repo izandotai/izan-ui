@@ -1,7 +1,9 @@
 #include "ui/os/wm.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <set>
 #include <string>
 
 #include <imgui_internal.h>
@@ -15,31 +17,95 @@ namespace {
         return p.x >= min.x && p.y >= min.y && p.x <= max.x && p.y <= max.y;
     }
 
+    bool token(std::string_view value, std::size_t ceiling)
+    {
+        if (value.empty() || value.size() > ceiling
+            || !std::islower(static_cast<unsigned char>(value.front())))
+            return false;
+        return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return std::islower(c) || std::isdigit(c) || c == '.' || c == '_'
+                || c == '-';
+        });
+    }
+
+    bool window_size(ImVec2 size)
+    {
+        return std::isfinite(size.x) && std::isfinite(size.y) && size.x >= 12.0f
+            && size.x <= 120.0f && size.y >= 8.0f && size.y <= 80.0f;
+    }
+
+    std::string placement_key(const App* app, std::string_view window_id)
+    {
+        if (window_id == kMainWindowId)
+            return app->id();
+        return std::string(app->id()) + "~" + std::string(window_id);
+    }
+
+    std::pair<std::string, std::string> placement_owner(std::string_view key)
+    {
+        const std::size_t split = key.find('~');
+        if (split == std::string_view::npos)
+            return { std::string(key), std::string(kMainWindowId) };
+        return { std::string(key.substr(0, split)),
+            std::string(key.substr(split + 1)) };
+    }
+
+    bool valid_placement_key(std::string_view key)
+    {
+        const auto [app_id, window_id] = placement_owner(key);
+        return token(app_id, 64) && token(window_id, 48)
+            && (window_id == kMainWindowId || key.find('~') != key.npos)
+            && key.find('~') == key.rfind('~');
+    }
+
 }
 
 void Wm::attach(App* app)
 {
     if (app == nullptr || index_of(app) >= 0)
         return;
-    WindowState w;
-    w.app = app;
-    windows_.push_back(w);
+    windows_.push_back({ app, std::string(kMainWindowId), app->name(),
+        app->initial_size_em() });
+
+    std::set<std::string> ids { std::string(kMainWindowId) };
+    constexpr std::size_t kMaximumWindowsPerApp = 8;
+    std::size_t accepted = 1;
+    for (const AppWindowSpec& spec : app->secondary_windows()) {
+        if (accepted >= kMaximumWindowsPerApp || !token(spec.id, 48)
+            || spec.id == kMainWindowId
+            || spec.title.empty() || spec.title.size() > 160
+            || !window_size(spec.initial_size_em)
+            || !ids.insert(spec.id).second)
+            continue;
+        windows_.push_back(
+            { app, spec.id, spec.title, spec.initial_size_em });
+        ++accepted;
+    }
 }
 
 void Wm::launch(App* app)
 {
-    const int index = index_of(app);
+    launch(app, kMainWindowId);
+}
+
+void Wm::launch(App* app, std::string_view window_id)
+{
+    const int index = index_of(app, window_id);
     if (index < 0)
         return;
     if (!framed_) {
-        if (std::find(pending_.begin(), pending_.end(), app) == pending_.end())
-            pending_.push_back(app);
+        const bool queued = std::any_of(pending_.begin(), pending_.end(),
+            [&](const PendingLaunch& pending) {
+                return pending.app == app && pending.window_id == window_id;
+            });
+        if (!queued)
+            pending_.push_back({ app, std::string(window_id) });
         return;
     }
     WindowState& w = windows_[static_cast<std::size_t>(index)];
     if (!w.open) {
         const float em = ImGui::GetFontSize();
-        const auto saved = placements_.find(w.app->id());
+        const auto saved = placements_.find(placement_key(w.app, w.id));
         if (saved != placements_.end()) {
             const WindowPlacement& placement = saved->second;
             w.pos = placement.pos;
@@ -57,7 +123,9 @@ void Wm::launch(App* app)
             keep_visible(w.pos, w.size);
             keep_visible(w.restore_pos, w.restore_size);
         } else {
-            const ImVec2 want = w.app->initial_size_em();
+            const ImVec2 want = window_size(w.initial_size_em)
+                ? w.initial_size_em
+                : ImVec2 { 30.0f, 22.0f };
             w.size = { want.x * em, want.y * em };
             const float step = em * 1.6f;
             const float slot = static_cast<float>(spawn_count_ % 5);
@@ -78,49 +146,63 @@ void Wm::launch(App* app)
 
 void Wm::toggle(App* app)
 {
-    const int index = index_of(app);
-    if (index < 0)
+    if (!attached(app))
         return;
-    WindowState& w = windows_[static_cast<std::size_t>(index)];
-    if (!w.open) {
+    int index = top_open_index(app);
+    if (index < 0) {
         launch(app);
         return;
     }
-    if (w.minimized) {
-        w.minimized = false;
-        w.spawn_focus = true;
-        raise(index);
-        return;
-    }
     if (focused() == app) {
-        w.minimized = true;
+        for (WindowState& window : windows_)
+            if (window.app == app && window.open)
+                window.minimized = true;
         return;
     }
+    WindowState& w = windows_[static_cast<std::size_t>(index)];
+    w.minimized = false;
     w.spawn_focus = true;
     raise(index);
 }
 
 void Wm::close(App* app)
 {
-    std::erase(pending_, app);
-    const int index = index_of(app);
-    if (index < 0)
-        return;
-    close_window(index);
+    std::erase_if(pending_,
+        [&](const PendingLaunch& pending) { return pending.app == app; });
+    for (std::size_t i = 0; i < windows_.size(); ++i)
+        if (windows_[i].app == app)
+            close_window(static_cast<int>(i));
+}
+
+void Wm::close(App* app, std::string_view window_id)
+{
+    std::erase_if(pending_, [&](const PendingLaunch& pending) {
+        return pending.app == app && pending.window_id == window_id;
+    });
+    const int index = index_of(app, window_id);
+    if (index >= 0)
+        close_window(index);
 }
 
 void Wm::request_close(App* app)
 {
-    const int index = index_of(app);
+    request_close(app, kMainWindowId);
+}
+
+void Wm::request_close(App* app, std::string_view window_id)
+{
+    const int index = index_of(app, window_id);
     if (index < 0
         || !windows_[static_cast<std::size_t>(index)].open)
         return;
     close_window(index);
     const bool queued = std::any_of(close_requests_.begin(),
         close_requests_.end(),
-        [&](const CloseRequest& request) { return request.app == app; });
+        [&](const CloseRequest& request) {
+            return request.app == app && request.window_id == window_id;
+        });
     if (!queued)
-        close_requests_.push_back({ app });
+        close_requests_.push_back({ app, std::string(window_id) });
 }
 
 std::vector<CloseRequest> Wm::take_close_requests()
@@ -132,22 +214,27 @@ std::vector<CloseRequest> Wm::take_close_requests()
 
 void Wm::detach(App* app)
 {
-    std::erase(pending_, app);
+    std::erase_if(pending_,
+        [&](const PendingLaunch& pending) { return pending.app == app; });
     std::erase_if(close_requests_,
         [&](const CloseRequest& request) { return request.app == app; });
-    const int index = index_of(app);
-    if (index < 0)
+    if (!attached(app))
         return;
-    close_window(index);
     if (in_frame_) {
         // A Store action can uninstall another app from inside draw(). The
         // paint order is a snapshot of window indices, so compacting here
         // would make every later index lie. Drop the borrowed pointer now
         // and compact tombstones once that snapshot is no longer in use.
-        windows_[static_cast<std::size_t>(index)].app = nullptr;
+        for (std::size_t i = 0; i < windows_.size(); ++i)
+            if (windows_[i].app == app) {
+                close_window(static_cast<int>(i));
+                windows_[i].app = nullptr;
+            }
         return;
     }
-    erase_window(index);
+    for (std::size_t i = windows_.size(); i > 0; --i)
+        if (windows_[i - 1].app == app)
+            erase_window(static_cast<int>(i - 1));
 }
 
 void Wm::erase_window(int index)
@@ -195,8 +282,8 @@ void Wm::remember_window(int index)
     if (!w.open || w.app == nullptr || w.app->id() == nullptr
         || *w.app->id() == '\0')
         return;
-    placements_[w.app->id()] = { w.pos, w.size, w.restore_pos, w.restore_size,
-        w.maximized };
+    placements_[placement_key(w.app, w.id)] = { w.pos, w.size, w.restore_pos,
+        w.restore_size, w.maximized };
 }
 
 int Wm::index_of(const App* app) const
@@ -206,6 +293,44 @@ int Wm::index_of(const App* app) const
     for (std::size_t i = 0; i < windows_.size(); ++i)
         if (windows_[i].app == app)
             return static_cast<int>(i);
+    return -1;
+}
+
+int Wm::index_of(const App* app, std::string_view window_id) const
+{
+    if (app == nullptr || window_id.empty())
+        return -1;
+    for (std::size_t i = 0; i < windows_.size(); ++i)
+        if (windows_[i].app == app && windows_[i].id == window_id)
+            return static_cast<int>(i);
+    return -1;
+}
+
+int Wm::focused_index() const
+{
+    for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
+        const WindowState& w = windows_[static_cast<std::size_t>(*it)];
+        if (w.open && !w.minimized)
+            return *it;
+    }
+    return -1;
+}
+
+int Wm::top_open_index(const App* app) const
+{
+    // Prefer the top-most window the user can already see. A separately
+    // minimised child may sit later in z_ than a visible sibling and must not
+    // steal the app-level taskbar activation.
+    for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
+        const WindowState& w = windows_[static_cast<std::size_t>(*it)];
+        if (w.app == app && w.open && !w.minimized)
+            return *it;
+    }
+    for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
+        const WindowState& w = windows_[static_cast<std::size_t>(*it)];
+        if (w.app == app && w.open)
+            return *it;
+    }
     return -1;
 }
 
@@ -219,12 +344,8 @@ void Wm::raise(int index)
 
 App* Wm::focused() const
 {
-    for (auto it = z_.rbegin(); it != z_.rend(); ++it) {
-        const WindowState& w = windows_[static_cast<std::size_t>(*it)];
-        if (w.open && !w.minimized)
-            return w.app;
-    }
-    return nullptr;
+    const int index = focused_index();
+    return index < 0 ? nullptr : windows_[static_cast<std::size_t>(index)].app;
 }
 
 bool Wm::attached(const App* app) const
@@ -232,16 +353,44 @@ bool Wm::attached(const App* app) const
     return index_of(app) >= 0;
 }
 
+bool Wm::has_window(const App* app, std::string_view window_id) const
+{
+    return index_of(app, window_id) >= 0;
+}
+
 bool Wm::running(const App* app) const
 {
-    const int i = index_of(app);
+    return std::any_of(windows_.begin(), windows_.end(),
+        [&](const WindowState& window) {
+            return window.app == app && window.open;
+        });
+}
+
+bool Wm::running(const App* app, std::string_view window_id) const
+{
+    const int i = index_of(app, window_id);
     return i >= 0 && windows_[static_cast<std::size_t>(i)].open;
+}
+
+std::vector<std::string> Wm::open_windows(const App* app) const
+{
+    std::vector<std::string> out;
+    for (const WindowState& window : windows_)
+        if (window.app == app && window.open)
+            out.push_back(window.id);
+    return out;
 }
 
 bool Wm::minimized(const App* app) const
 {
-    const int i = index_of(app);
-    return i >= 0 && windows_[static_cast<std::size_t>(i)].minimized;
+    bool any = false;
+    for (const WindowState& window : windows_)
+        if (window.app == app && window.open) {
+            any = true;
+            if (!window.minimized)
+                return false;
+        }
+    return any;
 }
 
 std::vector<WindowPlacementRecord> Wm::snapshot_placements() const
@@ -250,13 +399,16 @@ std::vector<WindowPlacementRecord> Wm::snapshot_placements() const
     for (const WindowState& window : windows_)
         if (window.open && window.app != nullptr && window.app->id() != nullptr
             && *window.app->id() != '\0')
-            current[window.app->id()] = { window.pos, window.size,
+            current[placement_key(window.app, window.id)] = { window.pos,
+                window.size,
                 window.restore_pos, window.restore_size, window.maximized };
 
     std::vector<WindowPlacementRecord> out;
     out.reserve(current.size());
-    for (const auto& [id, placement] : current)
-        out.push_back({ id, placement });
+    for (const auto& [id, placement] : current) {
+        const auto [app_id, window_id] = placement_owner(id);
+        out.push_back({ id, placement, app_id, window_id });
+    }
     std::sort(out.begin(), out.end(),
         [](const auto& left, const auto& right) { return left.id < right.id; });
     return out;
@@ -272,12 +424,27 @@ bool Wm::restore_placement(
         return finite(value) && value.x >= 1.0f && value.y >= 1.0f
             && value.x <= 100'000.0f && value.y <= 100'000.0f;
     };
-    if (id.empty() || id.size() > 128 || !finite(placement.pos)
+    if (!valid_placement_key(id) || id.size() > 128 || !finite(placement.pos)
         || !finite(placement.restore_pos) || !usable_size(placement.size)
         || !usable_size(placement.restore_size))
         return false;
     placements_[std::string(id)] = placement;
     return true;
+}
+
+void Wm::drain_app_commands()
+{
+    std::set<App*> apps;
+    for (const WindowState& window : windows_)
+        if (window.app)
+            apps.insert(window.app);
+    for (App* app : apps)
+        for (AppWindowCommand command : app->take_window_commands()) {
+            if (command.kind == AppWindowCommandKind::Open)
+                launch(app, command.id);
+            else
+                request_close(app, command.id);
+        }
 }
 
 void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
@@ -286,11 +453,12 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
     ws_min_ = ws_min;
     ws_max_ = ws_max;
     framed_ = true;
+    drain_app_commands();
     if (!pending_.empty()) {
-        const std::vector<App*> queued = std::move(pending_);
+        const std::vector<PendingLaunch> queued = std::move(pending_);
         pending_.clear();
-        for (App* app : queued)
-            launch(app);
+        for (const PendingLaunch& pending : queued)
+            launch(pending.app, pending.window_id);
     }
     const float em = ImGui::GetFontSize();
     const Theme& look = theme();
@@ -427,7 +595,7 @@ void Wm::paint_window(int index)
     const float em = ImGui::GetFontSize();
     const Theme& look = theme();
     const float title_h = look.title_height(em);
-    const bool focused_win = focused() == w.app;
+    const bool focused_win = focused_index() == index;
 
     const ImVec2 rmin = w.maximized ? ws_min_ : w.pos;
     const ImVec2 rmax = w.maximized
@@ -452,7 +620,9 @@ void Wm::paint_window(int index)
         | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
         | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    const std::string name = std::string("###os-window-") + w.app->id();
+    const std::string window_key
+        = std::string(w.app->id()) + "~" + w.id;
+    const std::string name = "###os-window-" + window_key;
     ImGui::Begin(name.c_str(), nullptr, flags);
     if (w.spawn_focus) {
         ImGui::SetWindowFocus();
@@ -464,6 +634,7 @@ void Wm::paint_window(int index)
 
     WindowLook wl;
     wl.app = w.app;
+    wl.title = w.title.c_str();
     wl.focused = focused_win;
     wl.maximized = w.maximized;
     wl.hover_ok = index == hover_;
@@ -477,11 +648,11 @@ void Wm::paint_window(int index)
             continue;
         ImGui::SetCursorScreenPos(r.min);
         const std::string bid
-            = std::string("##control-") + w.app->id() + std::to_string(c);
+            = "##control-" + window_key + std::to_string(c);
         if (ImGui::InvisibleButton(
                 bid.c_str(), { r.max.x - r.min.x, r.max.y - r.min.y })) {
             if (c == static_cast<int>(WindowControl::Close)) {
-                request_close(w.app);
+                request_close(w.app, w.id);
             } else if (c == static_cast<int>(WindowControl::Minimize)) {
                 w.minimized = true;
             } else if (!w.maximized) {
@@ -508,11 +679,11 @@ void Wm::paint_window(int index)
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleVar(
             ImGuiStyleVar_WindowPadding, ImVec2(em * 0.9f, em * 0.7f));
-        const std::string content = std::string("##os-content-") + w.app->id();
+        const std::string content = "##os-content-" + window_key;
         ImGui::BeginChild(content.c_str(),
             { rsize.x - 2.0f, rsize.y - title_h - 2.0f }, ImGuiChildFlags_None,
             ImGuiWindowFlags_NoSavedSettings);
-        w.app->draw();
+        w.app->draw_window(w.id);
         ImGui::EndChild();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();

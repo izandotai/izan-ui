@@ -3,7 +3,10 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "ui/os/shell.hpp"
 #include "ui/os/wm.hpp"
@@ -36,6 +39,34 @@ namespace {
 
     private:
         const char* id_;
+    };
+
+    class MultiWindowApp final : public izan::os::App {
+    public:
+        const char* id() const override { return "multi-probe"; }
+        const char* name() const override { return "Multi Probe"; }
+        const char* mark() const override { return "M"; }
+        std::vector<izan::os::AppWindowSpec> secondary_windows() const override
+        {
+            return { { "inspector", "Inspector", { 24.0f, 16.0f } },
+                { "timeline", "Timeline", { 28.0f, 14.0f } } };
+        }
+        std::vector<izan::os::AppWindowCommand> take_window_commands() override
+        {
+            std::vector<izan::os::AppWindowCommand> out;
+            out.swap(commands);
+            return out;
+        }
+        void draw() override { draw_window(izan::os::kMainWindowId); }
+        void draw_window(std::string_view window_id) override
+        {
+            drawn.emplace_back(window_id);
+            ImGui::TextUnformatted(window_id.data(),
+                window_id.data() + window_id.size());
+        }
+
+        std::vector<izan::os::AppWindowCommand> commands;
+        std::vector<std::string> drawn;
     };
 
     class ImGuiHarness {
@@ -285,4 +316,84 @@ TEST_CASE("detach during paint leaves the frame index snapshot valid")
     CHECK(wm.running(&last));
     CHECK(wm.focused() == &last);
     CHECK(last_draws == 1);
+}
+
+TEST_CASE("one app owns distinct windows and close intents stay window-local")
+{
+    ImGuiHarness imgui;
+    izan::os::Wm wm;
+    MultiWindowApp app;
+    wm.attach(&app);
+    imgui.prime(wm);
+
+    wm.launch(&app);
+    wm.launch(&app, "inspector");
+    wm.launch(&app, "timeline");
+    REQUIRE(wm.open_windows(&app).size() == 3);
+    CHECK(wm.running(&app, "main"));
+    CHECK(wm.running(&app, "inspector"));
+
+    wm.request_close(&app, "inspector");
+    wm.request_close(&app, "inspector");
+    wm.request_close(&app, "timeline");
+    CHECK(wm.running(&app));
+    CHECK_FALSE(wm.running(&app, "inspector"));
+    auto requests = wm.take_close_requests();
+    REQUIRE(requests.size() == 2);
+    CHECK(requests[0].window_id == "inspector");
+    CHECK(requests[1].window_id == "timeline");
+
+    wm.request_close(&app);
+    CHECK_FALSE(wm.running(&app));
+    requests = wm.take_close_requests();
+    REQUIRE(requests.size() == 1);
+    CHECK(requests.front().window_id == "main");
+}
+
+TEST_CASE("app window commands cross the frame boundary safely")
+{
+    ImGuiHarness imgui;
+    izan::os::Wm wm;
+    MultiWindowApp app;
+    wm.attach(&app);
+    wm.launch(&app);
+    app.commands.push_back(
+        { izan::os::AppWindowCommandKind::Open, "inspector" });
+    imgui.prime(wm);
+
+    CHECK(wm.running(&app, "main"));
+    CHECK(wm.running(&app, "inspector"));
+    CHECK(std::find(app.drawn.begin(), app.drawn.end(), "main")
+        != app.drawn.end());
+    CHECK(std::find(app.drawn.begin(), app.drawn.end(), "inspector")
+        != app.drawn.end());
+
+    app.commands.push_back(
+        { izan::os::AppWindowCommandKind::Close, "inspector" });
+    imgui.prime(wm);
+    CHECK_FALSE(wm.running(&app, "inspector"));
+    const auto requests = wm.take_close_requests();
+    REQUIRE(requests.size() == 1);
+    CHECK(requests.front().window_id == "inspector");
+}
+
+TEST_CASE("secondary window placements have collision-free stable keys")
+{
+    ImGuiHarness imgui;
+    izan::os::Wm wm;
+    MultiWindowApp app;
+    wm.attach(&app);
+    imgui.prime(wm);
+    wm.launch(&app);
+    wm.launch(&app, "inspector");
+    imgui.prime(wm);
+
+    const auto placements = wm.snapshot_placements();
+    REQUIRE(placements.size() == 2);
+    const auto secondary = std::find_if(placements.begin(), placements.end(),
+        [](const auto& record) { return record.window_id == "inspector"; });
+    REQUIRE(secondary != placements.end());
+    CHECK(secondary->id == "multi-probe~inspector");
+    CHECK(secondary->app_id == "multi-probe");
+    CHECK(secondary->window_id == "inspector");
 }

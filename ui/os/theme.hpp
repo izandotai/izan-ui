@@ -28,6 +28,7 @@ enum class WindowControl { Close = 0, Minimize = 1, Maximize = 2 };
 // What a theme needs to know to paint one window.
 struct WindowLook {
     const App* app = nullptr;
+    const char* title = nullptr;
     bool focused = false;
     bool maximized = false;
     // True only for the one window directly under the cursor while

@@ -14,6 +14,9 @@ namespace izan::os {
 
 struct WindowState {
     App* app = nullptr;
+    std::string id;
+    std::string title;
+    ImVec2 initial_size_em {};
     ImVec2 pos {};
     ImVec2 size {};
     ImVec2 restore_pos {};
@@ -29,6 +32,7 @@ struct WindowState {
 // after the frame and applies its application policy there.
 struct CloseRequest {
     App* app = nullptr;
+    std::string window_id;
 };
 
 // Window geometry outlives an App instance. JS apps are destroyed on close,
@@ -45,6 +49,8 @@ struct WindowPlacement {
 struct WindowPlacementRecord {
     std::string id;
     WindowPlacement placement;
+    std::string app_id;
+    std::string window_id;
 };
 
 // The window manager — mechanism only, no pixels. Input runs as a
@@ -58,6 +64,7 @@ public:
 
     // Open (or restore) and raise an app's window.
     void launch(App* app);
+    void launch(App* app, std::string_view window_id);
 
     // Taskbar-button semantics: closed opens, minimized restores,
     // focused minimizes, anything else comes to the front.
@@ -68,10 +75,12 @@ public:
     // the first frame is withdrawn. Programmatic close is silent: it
     // does not enqueue a user CloseRequest.
     void close(App* app);
+    void close(App* app, std::string_view window_id);
 
     // Close visually and enqueue one user intent. Repeated asks before the
     // owner drains the queue are coalesced.
     void request_close(App* app);
+    void request_close(App* app, std::string_view window_id);
 
     // Transfer every close intent to the owning host. The host must finish
     // the UI frame, submit its render data, detach the app, and only then
@@ -112,7 +121,10 @@ public:
 
     App* focused() const;
     bool attached(const App* app) const;
+    bool has_window(const App* app, std::string_view window_id) const;
     bool running(const App* app) const;
+    bool running(const App* app, std::string_view window_id) const;
+    std::vector<std::string> open_windows(const App* app) const;
 
     // A drag or resize in flight — the host draws the cursor in-frame
     // during these so window and cursor can never slip apart.
@@ -133,6 +145,10 @@ public:
 
 private:
     int index_of(const App* app) const;
+    int index_of(const App* app, std::string_view window_id) const;
+    int focused_index() const;
+    int top_open_index(const App* app) const;
+    void drain_app_commands();
     void close_window(int index);
     void remember_window(int index);
     void erase_window(int index);
@@ -145,7 +161,11 @@ private:
     // launch() before the first frame has no font metrics and no
     // workspace to place a window in; those launches wait here and
     // land at the top of the next frame.
-    std::vector<App*> pending_;
+    struct PendingLaunch {
+        App* app = nullptr;
+        std::string window_id;
+    };
+    std::vector<PendingLaunch> pending_;
     std::vector<CloseRequest> close_requests_;
     std::unordered_map<std::string, WindowPlacement> placements_;
     const Theme* theme_ = nullptr;

@@ -82,8 +82,8 @@ namespace {
             // draw — two separate draws each center their own glyph
             // box and the emoji drifts off the text's baseline.
             {
-                const std::string title
-                    = std::string(look.app->mark()) + "  " + look.app->name();
+                const std::string title = std::string(look.app->mark()) + "  "
+                    + (look.title ? look.title : look.app->name());
                 text_vcentered(draw, rmin.x + 14.0f * s,
                     (rmin.y + title_max.y) * 0.5f,
                     look.focused ? IM_COL32(47, 51, 48, 255)
