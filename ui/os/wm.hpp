@@ -3,6 +3,7 @@
 #include <imgui.h>
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -39,6 +40,11 @@ struct WindowPlacement {
     ImVec2 restore_pos {};
     ImVec2 restore_size {};
     bool maximized = false;
+};
+
+struct WindowPlacementRecord {
+    std::string id;
+    WindowPlacement placement;
 };
 
 // The window manager — mechanism only, no pixels. Input runs as a
@@ -116,6 +122,14 @@ public:
     }
 
     bool minimized(const App* app) const;
+
+    // Stable-id geometry is the persistence boundary. A snapshot overlays
+    // currently open windows on the close-time cache; restored records are
+    // applied only when that id is next launched and are clamped to the live
+    // workspace then.
+    std::vector<WindowPlacementRecord> snapshot_placements() const;
+    bool restore_placement(
+        std::string_view id, const WindowPlacement& placement);
 
 private:
     int index_of(const App* app) const;

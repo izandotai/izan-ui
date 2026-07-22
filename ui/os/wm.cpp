@@ -1,6 +1,7 @@
 #include "ui/os/wm.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 #include <imgui_internal.h>
@@ -241,6 +242,42 @@ bool Wm::minimized(const App* app) const
 {
     const int i = index_of(app);
     return i >= 0 && windows_[static_cast<std::size_t>(i)].minimized;
+}
+
+std::vector<WindowPlacementRecord> Wm::snapshot_placements() const
+{
+    auto current = placements_;
+    for (const WindowState& window : windows_)
+        if (window.open && window.app != nullptr && window.app->id() != nullptr
+            && *window.app->id() != '\0')
+            current[window.app->id()] = { window.pos, window.size,
+                window.restore_pos, window.restore_size, window.maximized };
+
+    std::vector<WindowPlacementRecord> out;
+    out.reserve(current.size());
+    for (const auto& [id, placement] : current)
+        out.push_back({ id, placement });
+    std::sort(out.begin(), out.end(),
+        [](const auto& left, const auto& right) { return left.id < right.id; });
+    return out;
+}
+
+bool Wm::restore_placement(
+    std::string_view id, const WindowPlacement& placement)
+{
+    const auto finite = [](ImVec2 value) {
+        return std::isfinite(value.x) && std::isfinite(value.y);
+    };
+    const auto usable_size = [&](ImVec2 value) {
+        return finite(value) && value.x >= 1.0f && value.y >= 1.0f
+            && value.x <= 100'000.0f && value.y <= 100'000.0f;
+    };
+    if (id.empty() || id.size() > 128 || !finite(placement.pos)
+        || !finite(placement.restore_pos) || !usable_size(placement.size)
+        || !usable_size(placement.restore_size))
+        return false;
+    placements_[std::string(id)] = placement;
+    return true;
 }
 
 void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)

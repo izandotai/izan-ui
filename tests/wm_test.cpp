@@ -23,6 +23,7 @@ namespace {
         void draw() override
         {
             last_draw_pos = ImGui::GetWindowPos();
+            last_draw_size = ImGui::GetWindowSize();
             drew = true;
             if (on_draw)
                 on_draw();
@@ -30,6 +31,7 @@ namespace {
 
         std::function<void()> on_draw;
         ImVec2 last_draw_pos {};
+        ImVec2 last_draw_size {};
         bool drew = false;
 
     private:
@@ -44,6 +46,7 @@ namespace {
             ImGuiIO& io = ImGui::GetIO();
             io.DisplaySize = { 1280.0f, 720.0f };
             io.DeltaTime = 1.0f / 60.0f;
+            io.IniFilename = nullptr;
             unsigned char* pixels = nullptr;
             int width = 0, height = 0;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
@@ -179,6 +182,51 @@ TEST_CASE("a replacement instance with the same id restores window placement")
     REQUIRE(unseen.drew);
     CHECK(unseen.last_draw_pos.x > original.x);
     CHECK(unseen.last_draw_pos.y > original.y);
+}
+
+TEST_CASE("stable placements cross a window-manager process boundary")
+{
+    ImGuiHarness first_imgui;
+    izan::os::Wm first_wm;
+    izan::os::WindowPlacement seeded { { 310.0f, 125.0f }, { 460.0f, 330.0f },
+        { 280.0f, 110.0f }, { 420.0f, 300.0f }, false };
+    REQUIRE(first_wm.restore_placement("session-probe", seeded));
+    CHECK_FALSE(first_wm.restore_placement("", seeded));
+    izan::os::WindowPlacement broken = seeded;
+    broken.size.x = -1.0f;
+    CHECK_FALSE(first_wm.restore_placement("broken", broken));
+
+    TestApp first("session-probe");
+    first_wm.attach(&first);
+    first_imgui.prime(first_wm);
+    first_wm.launch(&first);
+    first_imgui.prime(first_wm);
+    REQUIRE(first.drew);
+
+    const auto snapshot = first_wm.snapshot_placements();
+    REQUIRE(snapshot.size() == 1);
+    CHECK(snapshot.front().id == "session-probe");
+    CHECK(snapshot.front().placement.pos.x == doctest::Approx(seeded.pos.x));
+    CHECK(snapshot.front().placement.pos.y == doctest::Approx(seeded.pos.y));
+    CHECK(snapshot.front().placement.size.x == doctest::Approx(seeded.size.x));
+    CHECK(snapshot.front().placement.size.y == doctest::Approx(seeded.size.y));
+
+    izan::os::Wm replacement_wm;
+    REQUIRE(replacement_wm.restore_placement(
+        snapshot.front().id, snapshot.front().placement));
+    TestApp replacement("session-probe");
+    replacement_wm.attach(&replacement);
+    first_imgui.prime(replacement_wm);
+    replacement_wm.launch(&replacement);
+    first_imgui.prime(replacement_wm);
+    CHECK(
+        replacement.last_draw_pos.x == doctest::Approx(first.last_draw_pos.x));
+    CHECK(
+        replacement.last_draw_pos.y == doctest::Approx(first.last_draw_pos.y));
+    CHECK(replacement.last_draw_size.x
+        == doctest::Approx(first.last_draw_size.x));
+    CHECK(replacement.last_draw_size.y
+        == doctest::Approx(first.last_draw_size.y));
 }
 
 TEST_CASE("shell detach removes both roster and window state")
