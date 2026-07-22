@@ -109,9 +109,14 @@ void kit_field_well_finish(bool focused)
 
 void kit_field_frame(const ImVec2& pos, const ImVec2& size)
 {
+    kit_field_frame(pos, size, false);
+}
+
+void kit_field_frame(const ImVec2& pos, const ImVec2& size, bool focused)
+{
     const ImVec2 max(pos.x + size.x, pos.y + size.y);
     paint_floor(pos, size);
-    paint_well(pos, max, false);
+    paint_well(pos, max, focused);
 }
 
 bool kit_text_field(

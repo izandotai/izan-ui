@@ -31,6 +31,10 @@ void kit_field_well_finish(bool focused);
 // them.
 void kit_field_frame(const ImVec2& pos, const ImVec2& size);
 
+// Focus-aware sibling for composite controls such as selects. The original
+// two-argument symbol remains available to already-built static consumers.
+void kit_field_frame(const ImVec2& pos, const ImVec2& size, bool focused);
+
 // A password field that reports its focus into the page's secret-focus
 // aggregate — the flag the IME detach rides on. Field-level, not
 // form-level: ordinary text next to it keeps CJK input working. The

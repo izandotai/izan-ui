@@ -179,12 +179,39 @@ void draw_kit_gallery()
     kit_text_field("##name", "钱包名称", name.data(), name.size());
     ImGui::SetNextItemWidth(em * 10.0f);
     secret_field("##pass", pass, secret_focus, "口令");
+    // IZAN_SELECT_PROBE=1 clicks this field over two queued input frames so
+    // IZAN_SHOT can capture the open list, including its square scrollbar
+    // gutter, without a human timing the screenshot.
+    static const bool select_probe
+        = std::getenv("IZAN_SELECT_PROBE") != nullptr;
+    if (select_probe) {
+        const int frame = ImGui::GetFrameCount();
+        const ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGuiIO& io = ImGui::GetIO();
+        if (frame == 2) {
+            io.AddMousePosEvent(p.x + em * 5.0f, p.y + em);
+            io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+        } else if (frame == 3) {
+            io.AddMousePosEvent(p.x + em * 5.0f, p.y + em);
+            io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+        } else if (frame == 4) {
+            // Settle over the third row so the visual probe exercises the
+            // hover treatment as well as the selected checkmark.
+            io.AddMousePosEvent(p.x + em * 5.0f, p.y + em * 6.10f);
+        }
+    }
     if (kit_select_begin(
             "##chain", chain == 0 ? "Ethereum" : "Sepolia", em * 10.0f)) {
         if (kit_select_item("Ethereum", chain == 0))
             chain = 0;
         if (kit_select_item("Sepolia", chain == 1))
             chain = 1;
+        if (select_probe) {
+            for (const char* label :
+                { "Robinhood Chain", "Base", "Arbitrum One", "Polygon",
+                    "Optimism", "Avalanche", "BNB Chain", "Linea" })
+                kit_select_item(label, false);
+        }
         kit_select_end();
     }
     kit_toggle("##t", &toggled);

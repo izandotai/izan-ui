@@ -98,7 +98,7 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
     const float rejected_at = store->GetFloat(reject_key, -1.0e9f);
     if (ImGui::GetTime() - rejected_at < 0.8) {
         kit_round_border(ImGui::GetWindowDrawList(), pos, fmax,
-            ImGui::GetStyle().FrameRounding, kit_danger());
+            em * design().field_radius, kit_danger());
     }
 
     // The trailing glyph: paste into an empty field, clear a full one.

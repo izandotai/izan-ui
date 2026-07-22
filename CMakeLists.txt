@@ -196,4 +196,9 @@ if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
     target_link_libraries(
         izan_wm_test PRIVATE izan_os izan_ui_shell doctest::doctest)
     add_test(NAME izan_wm_test COMMAND izan_wm_test)
+
+    add_executable(izan_select_test tests/select_test.cpp)
+    target_link_libraries(
+        izan_select_test PRIVATE izan_kit doctest::doctest)
+    add_test(NAME izan_select_test COMMAND izan_select_test)
 endif()

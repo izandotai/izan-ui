@@ -158,7 +158,7 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
         flash.min = pos;
         flash.max = fmax;
         flash.radius[0] = flash.radius[1] = flash.radius[2] = flash.radius[3]
-            = ImGui::GetStyle().FrameRounding;
+            = em * design().field_radius;
         flash.border = ImGui::GetColorU32(kit_danger());
         flash.border_px = 2.0f;
         render::sdf_rect(ImGui::GetWindowDrawList(), flash);
