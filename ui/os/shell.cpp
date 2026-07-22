@@ -8,7 +8,8 @@ namespace izan::os {
 
 void Shell::attach(App* app)
 {
-    if (std::find(apps_.begin(), apps_.end(), app) != apps_.end())
+    if (app == nullptr
+        || std::find(apps_.begin(), apps_.end(), app) != apps_.end())
         return;
     apps_.push_back(app);
     wm_.attach(app);
@@ -16,10 +17,8 @@ void Shell::attach(App* app)
 
 void Shell::detach(App* app)
 {
-    wm_.close(app);
-    const auto it = std::find(apps_.begin(), apps_.end(), app);
-    if (it != apps_.end())
-        apps_.erase(it);
+    wm_.detach(app);
+    std::erase(apps_, app);
 }
 
 void Shell::frame(ImVec2 pos, ImVec2 size)

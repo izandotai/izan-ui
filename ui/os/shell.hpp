@@ -19,8 +19,17 @@ public:
     void attach(App* app);
 
     // The uninstall half of the registry: the window shuts and the
-    // app leaves the launcher roster. The object stays with the host.
+    // app leaves the launcher roster and window table. The object stays
+    // with the host; GPU-backed final destruction waits until the frame's
+    // renderer submission even when detach is requested from App::draw().
     void detach(App* app);
+
+    // User close intents collected during the last frame. Draining does not
+    // detach or destroy anything; instance policy belongs to the host.
+    std::vector<CloseRequest> take_close_requests()
+    {
+        return wm_.take_close_requests();
+    }
 
     void set_theme(const Theme* theme)
     {

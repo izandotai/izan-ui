@@ -21,6 +21,13 @@ struct WindowState {
     bool spawn_focus = false;
 };
 
+// A close button is an intent, not permission to destroy an App while the
+// window manager is still painting it. The owning host drains these requests
+// after the frame and applies its application policy there.
+struct CloseRequest {
+    App* app = nullptr;
+};
+
 // The window manager — mechanism only, no pixels. Input runs as a
 // pre-pass at the top of the frame against the current rectangles,
 // so a drag lands in the same frame it happens: the inner windows
@@ -39,8 +46,24 @@ public:
 
     // Shut an app's window from outside — the uninstall path: same
     // effect as its close button, plus any launch still waiting for
-    // the first frame is withdrawn.
+    // the first frame is withdrawn. Programmatic close is silent: it
+    // does not enqueue a user CloseRequest.
     void close(App* app);
+
+    // Close visually and enqueue one user intent. Repeated asks before the
+    // owner drains the queue are coalesced.
+    void request_close(App* app);
+
+    // Transfer every close intent to the owning host. The host must finish
+    // the UI frame, submit its render data, detach the app, and only then
+    // destroy GPU-backed state.
+    std::vector<CloseRequest> take_close_requests();
+
+    // Forget an app completely. Unlike close(), this erases its WindowState
+    // and repairs every index that referred into the compacted table. A call
+    // during frame painting clears the pointer immediately and defers table
+    // compaction until the frame's index snapshot is no longer in use.
+    void detach(App* app);
 
     void set_theme(const Theme* theme)
     {
@@ -69,6 +92,7 @@ public:
     void front_popups();
 
     App* focused() const;
+    bool attached(const App* app) const;
     bool running(const App* app) const;
 
     // A drag or resize in flight — the host draws the cursor in-frame
@@ -82,6 +106,9 @@ public:
 
 private:
     int index_of(const App* app) const;
+    void close_window(int index);
+    void erase_window(int index);
+    void compact_detached();
     void raise(int index);
     void paint_window(int index);
 
@@ -91,8 +118,10 @@ private:
     // workspace to place a window in; those launches wait here and
     // land at the top of the next frame.
     std::vector<App*> pending_;
+    std::vector<CloseRequest> close_requests_;
     const Theme* theme_ = nullptr;
     bool framed_ = false;
+    bool in_frame_ = false;
     int drag_ = -1;
     int resize_ = -1;
     // Absolute grab anchors: position follows the cursor exactly

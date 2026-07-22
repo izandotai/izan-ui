@@ -18,7 +18,7 @@ namespace {
 
 void Wm::attach(App* app)
 {
-    if (index_of(app) >= 0)
+    if (app == nullptr || index_of(app) >= 0)
         return;
     WindowState w;
     w.app = app;
@@ -27,13 +27,14 @@ void Wm::attach(App* app)
 
 void Wm::launch(App* app)
 {
-    if (!framed_) {
-        pending_.push_back(app);
-        return;
-    }
     const int index = index_of(app);
     if (index < 0)
         return;
+    if (!framed_) {
+        if (std::find(pending_.begin(), pending_.end(), app) == pending_.end())
+            pending_.push_back(app);
+        return;
+    }
     WindowState& w = windows_[static_cast<std::size_t>(index)];
     if (!w.open) {
         const float em = ImGui::GetFontSize();
@@ -81,28 +82,96 @@ void Wm::toggle(App* app)
 
 void Wm::close(App* app)
 {
-    const auto queued = std::find(pending_.begin(), pending_.end(), app);
-    if (queued != pending_.end())
-        pending_.erase(queued);
+    std::erase(pending_, app);
     const int index = index_of(app);
     if (index < 0)
         return;
-    WindowState& w = windows_[static_cast<std::size_t>(index)];
-    if (!w.open)
+    close_window(index);
+}
+
+void Wm::request_close(App* app)
+{
+    const int index = index_of(app);
+    if (index < 0
+        || !windows_[static_cast<std::size_t>(index)].open)
         return;
+    close_window(index);
+    const bool queued = std::any_of(close_requests_.begin(),
+        close_requests_.end(),
+        [&](const CloseRequest& request) { return request.app == app; });
+    if (!queued)
+        close_requests_.push_back({ app });
+}
+
+std::vector<CloseRequest> Wm::take_close_requests()
+{
+    std::vector<CloseRequest> out;
+    out.swap(close_requests_);
+    return out;
+}
+
+void Wm::detach(App* app)
+{
+    std::erase(pending_, app);
+    std::erase_if(close_requests_,
+        [&](const CloseRequest& request) { return request.app == app; });
+    const int index = index_of(app);
+    if (index < 0)
+        return;
+    close_window(index);
+    if (in_frame_) {
+        // A Store action can uninstall another app from inside draw(). The
+        // paint order is a snapshot of window indices, so compacting here
+        // would make every later index lie. Drop the borrowed pointer now
+        // and compact tombstones once that snapshot is no longer in use.
+        windows_[static_cast<std::size_t>(index)].app = nullptr;
+        return;
+    }
+    erase_window(index);
+}
+
+void Wm::erase_window(int index)
+{
+    close_window(index);
+    windows_.erase(windows_.begin() + index);
+    for (int& z : z_)
+        if (z > index)
+            --z;
+    const auto repair = [index](int& tracked) {
+        if (tracked > index)
+            --tracked;
+    };
+    repair(drag_);
+    repair(resize_);
+    repair(hover_);
+}
+
+void Wm::compact_detached()
+{
+    for (std::size_t i = windows_.size(); i > 0; --i)
+        if (windows_[i - 1].app == nullptr)
+            erase_window(static_cast<int>(i - 1));
+}
+
+void Wm::close_window(int index)
+{
+    WindowState& w = windows_[static_cast<std::size_t>(index)];
     w.open = false;
     w.minimized = false;
-    const auto it = std::find(z_.begin(), z_.end(), index);
-    if (it != z_.end())
-        z_.erase(it);
+    w.spawn_focus = false;
+    std::erase(z_, index);
     if (drag_ == index)
         drag_ = -1;
     if (resize_ == index)
         resize_ = -1;
+    if (hover_ == index)
+        hover_ = -1;
 }
 
 int Wm::index_of(const App* app) const
 {
+    if (app == nullptr)
+        return -1;
     for (std::size_t i = 0; i < windows_.size(); ++i)
         if (windows_[i].app == app)
             return static_cast<int>(i);
@@ -127,6 +196,11 @@ App* Wm::focused() const
     return nullptr;
 }
 
+bool Wm::attached(const App* app) const
+{
+    return index_of(app) >= 0;
+}
+
 bool Wm::running(const App* app) const
 {
     const int i = index_of(app);
@@ -141,6 +215,7 @@ bool Wm::minimized(const App* app) const
 
 void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
 {
+    in_frame_ = true;
     ws_min_ = ws_min;
     ws_max_ = ws_max;
     framed_ = true;
@@ -256,9 +331,11 @@ void Wm::frame(ImVec2 ws_min, ImVec2 ws_max, const std::vector<OsRect>& blocked)
     const std::vector<int> order = z_;
     for (int index : order) {
         WindowState& w = windows_[static_cast<std::size_t>(index)];
-        if (w.open && !w.minimized)
+        if (w.app != nullptr && w.open && !w.minimized)
             paint_window(index);
     }
+    in_frame_ = false;
+    compact_detached();
 }
 
 // The kernel re-asserts its display order window by window, and the
@@ -337,10 +414,7 @@ void Wm::paint_window(int index)
         if (ImGui::InvisibleButton(
                 bid.c_str(), { r.max.x - r.min.x, r.max.y - r.min.y })) {
             if (c == static_cast<int>(WindowControl::Close)) {
-                w.open = false;
-                const auto it = std::find(z_.begin(), z_.end(), index);
-                if (it != z_.end())
-                    z_.erase(it);
+                request_close(w.app);
             } else if (c == static_cast<int>(WindowControl::Minimize)) {
                 w.minimized = true;
             } else if (!w.maximized) {

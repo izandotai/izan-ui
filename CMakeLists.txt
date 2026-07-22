@@ -190,4 +190,10 @@ if(PROJECT_IS_TOP_LEVEL AND IZAN_UI_SHELL)
     target_link_libraries(
         izan_ui_os_demo PRIVATE izan_ui_shell izan_os izan_kit)
     izan_ui_copy_assets(izan_ui_os_demo)
+
+    enable_testing()
+    add_executable(izan_wm_test tests/wm_test.cpp)
+    target_link_libraries(
+        izan_wm_test PRIVATE izan_os izan_ui_shell doctest::doctest)
+    add_test(NAME izan_wm_test COMMAND izan_wm_test)
 endif()
