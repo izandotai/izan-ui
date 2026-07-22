@@ -91,6 +91,24 @@ float Panel::height(float em) const
     return em * kPanelHeight / (ui::kDefaultFontSize / ui::kFontDesignScale);
 }
 
+void Panel::request_launch(std::string_view id)
+{
+    if (id.empty())
+        return;
+    const bool pending
+        = std::any_of(launch_requests_.begin(), launch_requests_.end(),
+            [&](const LaunchRequest& request) { return request.id == id; });
+    if (!pending)
+        launch_requests_.push_back({ std::string(id) });
+}
+
+std::vector<LaunchRequest> Panel::take_launch_requests()
+{
+    std::vector<LaunchRequest> out;
+    out.swap(launch_requests_);
+    return out;
+}
+
 void Panel::frame(
     Wm& wm, const std::vector<App*>& apps, ImVec2 view_min, ImVec2 view_max)
 {
@@ -136,19 +154,37 @@ void Panel::frame(
     };
     static constexpr std::array<const char*, 4> kLauncherGlyphs
         = { "⌂", "●", ">_", "F" };
-    const int launchers = std::min<int>(4, static_cast<int>(apps.size()));
+    const int shelf_size
+        = static_cast<int>(catalog_.empty() ? apps.size() : catalog_.size());
+    const int launchers = std::min(4, shelf_size);
     for (int i = 0; i < launchers; ++i) {
         const ImVec2 center { bar_min.x + (148.0f + i * 42.0f) * s, center_y };
         draw->AddCircleFilled(
             center, 14.0f * s, kLauncherColors[static_cast<std::size_t>(i)]);
-        text_centered(draw, center, IM_COL32(255, 255, 255, 255),
-            kLauncherGlyphs[static_cast<std::size_t>(i)], kFontSymbol * s);
-        const std::string id
-            = std::string("##launcher-") + apps[std::size_t(i)]->id();
-        if (invisible_hit(id.c_str(),
+        const AppDescriptor descriptor = catalog_.empty()
+            ? AppDescriptor { apps[std::size_t(i)]->id(),
+                  apps[std::size_t(i)]->name(), apps[std::size_t(i)]->mark() }
+            : catalog_[std::size_t(i)];
+        const char* glyph = descriptor.mark.empty()
+            ? kLauncherGlyphs[static_cast<std::size_t>(i)]
+            : descriptor.mark.c_str();
+        text_centered(
+            draw, center, IM_COL32(255, 255, 255, 255), glyph, kFontSymbol * s);
+        const std::string hit_id = "##launcher-" + descriptor.id;
+        if (invisible_hit(hit_id.c_str(),
                 { center.x - 14.0f * s, center.y - 14.0f * s },
-                { center.x + 14.0f * s, center.y + 14.0f * s }))
-            wm.launch(apps[std::size_t(i)]);
+                { center.x + 14.0f * s, center.y + 14.0f * s })) {
+            App* live = nullptr;
+            for (App* app : apps)
+                if (descriptor.id == app->id()) {
+                    live = app;
+                    break;
+                }
+            if (live)
+                wm.launch(live);
+            else
+                request_launch(descriptor.id);
+        }
     }
 
     draw->AddLine({ bar_min.x + 326.0f * s, bar_min.y + 8.0f * s },
@@ -400,14 +436,18 @@ void Panel::draw_menu(
             IM_COL32(113, 121, 117, 255),
             IM_COL32(171, 91, 167, 255),
         } };
-        std::vector<App*> shown;
-        for (App* app : apps)
+        std::vector<AppDescriptor> roster = catalog_;
+        if (roster.empty())
+            for (App* app : apps)
+                roster.push_back({ app->id(), app->name(), app->mark() });
+        std::vector<const AppDescriptor*> shown;
+        for (const AppDescriptor& app : roster)
             if (query.empty()
-                || std::string_view(app->name()).find(query)
+                || std::string_view(app.name).find(query)
                     != std::string_view::npos
-                || std::string_view(app->id()).find(query)
+                || std::string_view(app.id).find(query)
                     != std::string_view::npos)
-                shown.push_back(app);
+                shown.push_back(&app);
         const float row_top = min.y + 75.0f * s;
         const float row_bottom = max.y - 58.0f * s;
         const float span
@@ -419,7 +459,7 @@ void Panel::draw_menu(
             menu_scroll_ -= ImGui::GetIO().MouseWheel * 55.0f * s;
         menu_scroll_ = std::clamp(menu_scroll_, 0.0f, max_scroll);
         for (int i = 0; i < static_cast<int>(shown.size()); ++i) {
-            App* app = shown[static_cast<std::size_t>(i)];
+            const AppDescriptor& app = *shown[static_cast<std::size_t>(i)];
             const float y
                 = min.y + (82.0f + i * 55.0f) * s - menu_scroll_;
             if (y + 53.0f * s > row_bottom || y < row_top)
@@ -439,17 +479,27 @@ void Panel::draw_menu(
                     % kRosterColors.size()],
                 8.0f * s);
             text_centered(draw, { apps_x + 19.0f * s, y + 26.0f * s },
-                IM_COL32(255, 255, 255, 255), app->mark(), kFontSymbol * s);
+                IM_COL32(255, 255, 255, 255), app.mark.c_str(),
+                kFontSymbol * s);
             text_vcentered(draw, apps_x + 51.0f * s, y + 13.0f * s,
-                IM_COL32(239, 241, 240, 255), app->name(),
+                IM_COL32(239, 241, 240, 255), app.name.c_str(),
                 kFontBodyCompact * s);
             text_vcentered(draw, apps_x + 51.0f * s, y + 39.0f * s,
-                IM_COL32(147, 151, 148, 255), app->id(),
+                IM_COL32(147, 151, 148, 255), app.id.c_str(),
                 kFontSecondary * s);
             const std::string rid = "##menu-app-" + std::to_string(i);
             if (invisible_hit(rid.c_str(), app_min, app_max)) {
                 menu_app_ = i;
-                wm.launch(app);
+                App* live = nullptr;
+                for (App* candidate : apps)
+                    if (app.id == candidate->id()) {
+                        live = candidate;
+                        break;
+                    }
+                if (live)
+                    wm.launch(live);
+                else
+                    request_launch(app.id);
                 menu_open_ = false;
             }
         }

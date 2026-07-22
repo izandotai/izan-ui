@@ -2,6 +2,8 @@
 
 #include <imgui.h>
 
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "ui/os/app.hpp"
@@ -29,6 +31,21 @@ public:
     std::vector<CloseRequest> take_close_requests()
     {
         return wm_.take_close_requests();
+    }
+
+    void set_catalog(std::vector<AppDescriptor> catalog)
+    {
+        panel_.set_catalog(std::move(catalog));
+    }
+
+    void request_launch(std::string_view id)
+    {
+        panel_.request_launch(id);
+    }
+
+    std::vector<LaunchRequest> take_launch_requests()
+    {
+        return panel_.take_launch_requests();
     }
 
     void set_theme(const Theme* theme)

@@ -2,12 +2,26 @@
 
 #include <imgui.h>
 
+#include <string>
+
 // izan OS: a desktop-grade windowing kernel inside the izan chrome.
 // Not an operating system — a window manager, a dock, a menu bar and
 // an app registry, all compile-time C++. Every product in the family
 // ships as an App inside this shell.
 
 namespace izan::os {
+
+// Installation metadata is a value, not a running App. The launcher may list
+// these records without forcing the host to construct an application instance.
+struct AppDescriptor {
+    std::string id;
+    std::string name;
+    std::string mark;
+};
+
+struct LaunchRequest {
+    std::string id;
+};
 
 // One program: identity plus a content painter. The window manager
 // owns geometry and lifecycle; the app only paints its content

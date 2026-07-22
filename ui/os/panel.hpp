@@ -3,6 +3,8 @@
 #include <imgui.h>
 
 #include <array>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "ui/os/app.hpp"
@@ -37,6 +39,16 @@ public:
         menu_roster_ = on;
     }
 
+    // Installed applications are independent from live App instances. An
+    // empty catalog preserves the original attached-app roster behavior.
+    void set_catalog(std::vector<AppDescriptor> catalog)
+    {
+        catalog_ = std::move(catalog);
+    }
+
+    void request_launch(std::string_view id);
+    std::vector<LaunchRequest> take_launch_requests();
+
     // Open the launcher menu from outside — a keyboard shortcut's or
     // a headless probe's door; clicking the Menu button stays the
     // usual road.
@@ -45,7 +57,10 @@ public:
         menu_open_ = true;
     }
 
-    float menu_scroll() const { return menu_scroll_; }
+    float menu_scroll() const
+    {
+        return menu_scroll_;
+    }
 
     // Nudge the roster scroll from outside (probes, future keys).
     // Physical pixels; the frame clamps it to the list's span.
@@ -65,6 +80,8 @@ private:
     int menu_category_ = 0;
     int menu_app_ = -1;
     std::array<char, 96> menu_search_ {};
+    std::vector<AppDescriptor> catalog_;
+    std::vector<LaunchRequest> launch_requests_;
 };
 
 }

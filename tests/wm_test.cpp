@@ -162,6 +162,20 @@ TEST_CASE("shell detach removes both roster and window state")
     CHECK(shell.wm().attached(&app));
 }
 
+TEST_CASE("installed catalog launch requests are deduplicated and destructive")
+{
+    izan::os::Shell shell;
+    shell.set_catalog({ { "cold-app", "Cold App", "C" } });
+
+    shell.request_launch("cold-app");
+    shell.request_launch("cold-app");
+    shell.request_launch("");
+    auto requests = shell.take_launch_requests();
+    REQUIRE(requests.size() == 1);
+    CHECK(requests.front().id == "cold-app");
+    CHECK(shell.take_launch_requests().empty());
+}
+
 TEST_CASE("detach during paint leaves the frame index snapshot valid")
 {
     ImGuiHarness imgui;
