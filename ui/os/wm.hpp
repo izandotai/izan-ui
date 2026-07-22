@@ -2,6 +2,8 @@
 
 #include <imgui.h>
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "ui/os/app.hpp"
@@ -26,6 +28,17 @@ struct WindowState {
 // after the frame and applies its application policy there.
 struct CloseRequest {
     App* app = nullptr;
+};
+
+// Window geometry outlives an App instance. JS apps are destroyed on close,
+// but a new instance with the same stable id should reopen where the user left
+// it instead of consuming another cascade slot.
+struct WindowPlacement {
+    ImVec2 pos {};
+    ImVec2 size {};
+    ImVec2 restore_pos {};
+    ImVec2 restore_size {};
+    bool maximized = false;
 };
 
 // The window manager — mechanism only, no pixels. Input runs as a
@@ -107,6 +120,7 @@ public:
 private:
     int index_of(const App* app) const;
     void close_window(int index);
+    void remember_window(int index);
     void erase_window(int index);
     void compact_detached();
     void raise(int index);
@@ -119,6 +133,7 @@ private:
     // land at the top of the next frame.
     std::vector<App*> pending_;
     std::vector<CloseRequest> close_requests_;
+    std::unordered_map<std::string, WindowPlacement> placements_;
     const Theme* theme_ = nullptr;
     bool framed_ = false;
     bool in_frame_ = false;

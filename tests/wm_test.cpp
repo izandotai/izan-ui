@@ -22,11 +22,15 @@ namespace {
         const char* mark() const override { return "T"; }
         void draw() override
         {
+            last_draw_pos = ImGui::GetWindowPos();
+            drew = true;
             if (on_draw)
                 on_draw();
         }
 
         std::function<void()> on_draw;
+        ImVec2 last_draw_pos {};
+        bool drew = false;
 
     private:
         const char* id_;
@@ -143,6 +147,38 @@ TEST_CASE("detach withdraws pending launches and reattach starts fresh")
     REQUIRE(wm.attached(&app));
     wm.launch(&app);
     CHECK(wm.running(&app));
+}
+
+TEST_CASE("a replacement instance with the same id restores window placement")
+{
+    ImGuiHarness imgui;
+    izan::os::Wm wm;
+    TestApp first("placement-probe");
+    wm.attach(&first);
+    imgui.prime(wm);
+    wm.launch(&first);
+    imgui.prime(wm);
+    REQUIRE(first.drew);
+    const ImVec2 original = first.last_draw_pos;
+
+    wm.request_close(&first);
+    wm.detach(&first);
+    TestApp replacement("placement-probe");
+    wm.attach(&replacement);
+    wm.launch(&replacement);
+    imgui.prime(wm);
+
+    REQUIRE(replacement.drew);
+    CHECK(replacement.last_draw_pos.x == doctest::Approx(original.x));
+    CHECK(replacement.last_draw_pos.y == doctest::Approx(original.y));
+
+    TestApp unseen("new-placement-probe");
+    wm.attach(&unseen);
+    wm.launch(&unseen);
+    imgui.prime(wm);
+    REQUIRE(unseen.drew);
+    CHECK(unseen.last_draw_pos.x > original.x);
+    CHECK(unseen.last_draw_pos.y > original.y);
 }
 
 TEST_CASE("shell detach removes both roster and window state")

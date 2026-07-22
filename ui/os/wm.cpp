@@ -38,18 +38,37 @@ void Wm::launch(App* app)
     WindowState& w = windows_[static_cast<std::size_t>(index)];
     if (!w.open) {
         const float em = ImGui::GetFontSize();
-        const ImVec2 want = w.app->initial_size_em();
-        w.size = { want.x * em, want.y * em };
-        const float step = em * 1.6f;
-        const float slot = static_cast<float>(spawn_count_ % 5);
-        w.pos = { ws_min_.x + em * 4.0f + slot * step,
-            ws_min_.y + em * 2.2f + slot * step };
-        w.restore_pos = w.pos;
-        w.restore_size = w.size;
+        const auto saved = placements_.find(w.app->id());
+        if (saved != placements_.end()) {
+            const WindowPlacement& placement = saved->second;
+            w.pos = placement.pos;
+            w.size = placement.size;
+            w.restore_pos = placement.restore_pos;
+            w.restore_size = placement.restore_size;
+            w.maximized = placement.maximized;
+            const float title_h = theme().title_height(em);
+            const auto keep_visible = [&](ImVec2& pos, ImVec2 size) {
+                pos.x = std::clamp(pos.x,
+                    ws_min_.x - size.x + em * 6.0f,
+                    ws_max_.x - em * 6.0f);
+                pos.y = std::clamp(pos.y, ws_min_.y, ws_max_.y - title_h);
+            };
+            keep_visible(w.pos, w.size);
+            keep_visible(w.restore_pos, w.restore_size);
+        } else {
+            const ImVec2 want = w.app->initial_size_em();
+            w.size = { want.x * em, want.y * em };
+            const float step = em * 1.6f;
+            const float slot = static_cast<float>(spawn_count_ % 5);
+            w.pos = { ws_min_.x + em * 4.0f + slot * step,
+                ws_min_.y + em * 2.2f + slot * step };
+            w.restore_pos = w.pos;
+            w.restore_size = w.size;
+            w.maximized = false;
+            ++spawn_count_;
+        }
         w.open = true;
-        w.maximized = false;
         w.spawn_focus = true;
-        ++spawn_count_;
         z_.push_back(index);
     }
     w.minimized = false;
@@ -156,6 +175,7 @@ void Wm::compact_detached()
 void Wm::close_window(int index)
 {
     WindowState& w = windows_[static_cast<std::size_t>(index)];
+    remember_window(index);
     w.open = false;
     w.minimized = false;
     w.spawn_focus = false;
@@ -166,6 +186,16 @@ void Wm::close_window(int index)
         resize_ = -1;
     if (hover_ == index)
         hover_ = -1;
+}
+
+void Wm::remember_window(int index)
+{
+    const WindowState& w = windows_[static_cast<std::size_t>(index)];
+    if (!w.open || w.app == nullptr || w.app->id() == nullptr
+        || *w.app->id() == '\0')
+        return;
+    placements_[w.app->id()] = { w.pos, w.size, w.restore_pos, w.restore_size,
+        w.maximized };
 }
 
 int Wm::index_of(const App* app) const
